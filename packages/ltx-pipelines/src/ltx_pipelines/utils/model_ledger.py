@@ -177,7 +177,7 @@ class ModelLedger:
         )
 
     def transformer(self) -> X0Model:
-        offload_config = {0: "0.5GiB", "cpu": "32GiB"}
+        offload_config = {0: "0.2GiB", "cpu": "32GiB"}
         if not hasattr(self, "transformer_builder"):
             raise ValueError(
                 "Transformer not initialized. Please provide a checkpoint path to the ModelLedger constructor."

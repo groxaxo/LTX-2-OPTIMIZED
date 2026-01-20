@@ -68,6 +68,7 @@ def apply_split_rotary_emb_(
 
     return output
 
+
 def apply_split_rotary_emb(
     input_tensor: torch.Tensor, cos_freqs: torch.Tensor, sin_freqs: torch.Tensor
 ) -> torch.Tensor:

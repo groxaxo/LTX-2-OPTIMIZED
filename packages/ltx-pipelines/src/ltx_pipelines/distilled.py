@@ -4,6 +4,7 @@ import hashlib
 import os
 
 from collections.abc import Iterator
+import numpy as np
 
 import torch
 
@@ -76,6 +77,46 @@ class DistilledPipeline:
             dtype=self.dtype,
             device=device,
         )
+
+    def get_interpolated_sigmas(self, num_steps: int, device: torch.device) -> torch.Tensor:
+        # The original 8-step schedule provided by LTX
+        original_sigmas = DISTILLED_SIGMA_VALUES  #  [1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0]
+
+        # Create x-axis for original data (0 to 1)
+        old_x = np.linspace(0, 1, len(original_sigmas))
+
+        # Create x-axis for new data (we need num_steps + 1 points for num_steps steps)
+        new_x = np.linspace(0, 1, num_steps + 1)
+
+        # Linear interpolation to find new values that fit the curve
+        new_sigmas = np.interp(new_x, old_x, original_sigmas)
+
+        # Ensure precision and boundaries
+        new_sigmas[0] = original_sigmas[0]  # Force 1.0
+        new_sigmas[-1] = original_sigmas[-1]  # Force 0.0
+
+        # Convert to tensor
+        return torch.tensor(new_sigmas, dtype=torch.float32, device=device)
+
+    def get_interpolated_sigmas2(self, num_steps: int, device: torch.device) -> torch.Tensor:
+        # The original 8-step schedule provided by LTX
+        original_sigmas = STAGE_2_DISTILLED_SIGMA_VALUES  #  [1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0]
+
+        # Create x-axis for original data (0 to 1)
+        old_x = np.linspace(0, 1, len(original_sigmas))
+
+        # Create x-axis for new data (we need num_steps + 1 points for num_steps steps)
+        new_x = np.linspace(0, 1, num_steps + 1)
+
+        # Linear interpolation to find new values that fit the curve
+        new_sigmas = np.interp(new_x, old_x, original_sigmas)
+
+        # Ensure precision and boundaries
+        new_sigmas[0] = original_sigmas[0]  # Force 1.0
+        new_sigmas[-1] = original_sigmas[-1]  # Force 0.0
+
+        # Convert to tensor
+        return torch.tensor(new_sigmas, dtype=torch.float32, device=device)
 
     @torch.inference_mode()
     #@profile
@@ -165,6 +206,7 @@ class DistilledPipeline:
 
         transformer = self.model_ledger.transformer()
         stage_1_sigmas = torch.Tensor(DISTILLED_SIGMA_VALUES).to(self.device)
+        #stage_1_sigmas = self.get_interpolated_sigmas(12, self.device)
         def denoising_loop(
                 sigmas: torch.Tensor, video_state: LatentState, audio_state: LatentState, stepper: DiffusionStepProtocol
         ) -> tuple[LatentState, LatentState]:
@@ -227,6 +269,7 @@ class DistilledPipeline:
             latent=video_state.latent[:1], video_encoder=video_encoder, upsampler=upsampler
         )
         stage_2_sigmas = torch.Tensor(STAGE_2_DISTILLED_SIGMA_VALUES).to(self.device)
+        #stage_2_sigmas = self.get_interpolated_sigmas2(4, self.device)
         stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
         stage_2_conditionings = []
         if images:
