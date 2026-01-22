@@ -104,7 +104,7 @@ class BasicAVTransformerBlock(torch.nn.Module):
     ) -> tuple[torch.Tensor, ...]:
         num_ada_params = scale_shift_table.shape[0]
 
-        if not is_conditioning:
+        if is_conditioning == False:
             if timestep.dim() > 2 and timestep.shape[1] > 1:
                 timestep = timestep[:, [0], ...]
 
@@ -128,10 +128,10 @@ class BasicAVTransformerBlock(torch.nn.Module):
             is_conditioning: bool = True
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         scale_shift_ada_values = self.get_ada_values(
-            scale_shift_table[:num_scale_shift_values, :], batch_size, scale_shift_timestep, slice(None, None), is_conditioning
+            scale_shift_table[:num_scale_shift_values, :], batch_size, scale_shift_timestep, slice(None, None), is_conditioning=is_conditioning
         )
         gate_ada_values = self.get_ada_values(
-            scale_shift_table[num_scale_shift_values:, :], batch_size, gate_timestep, slice(None, None), is_conditioning
+            scale_shift_table[num_scale_shift_values:, :], batch_size, gate_timestep, slice(None, None), is_conditioning=is_conditioning
         )
 
         scale_shift_chunks = [t.squeeze(2) for t in scale_shift_ada_values]
@@ -161,54 +161,40 @@ class BasicAVTransformerBlock(torch.nn.Module):
 
         # --- Video Self-Attention & Cross-Attention ---
         if run_vx:
-            vshift_msa, vscale_msa, vgate_msa = self.get_ada_values(
-                self.scale_shift_table, vx.shape[0], video.timesteps, slice(0, 3), is_conditioning
-            )
-
             if not perturbations.all_in_batch(PerturbationType.SKIP_VIDEO_SELF_ATTN, self.idx):
-                # Optimization: Compute norm, then scale in-place to avoid allocating 'vx_scaled'
+                vshift_msa, vscale_msa, vgate_msa = self.get_ada_values(
+                    self.scale_shift_table, vx.shape[0], video.timesteps, slice(0, 3), is_conditioning=is_conditioning
+                )
                 norm_vx = rms_norm(vx, eps=self.norm_eps)
                 norm_vx.mul_(1 + vscale_msa).add_(vshift_msa)
 
                 v_mask = perturbations.mask_like(PerturbationType.SKIP_VIDEO_SELF_ATTN, self.idx, vx)
                 attn_out = self.attn1(norm_vx, pe=video.positional_embeddings)
+                del norm_vx
                 vx = vx + attn_out * vgate_msa * v_mask
 
-                del norm_vx, attn_out, v_mask
+                del attn_out, v_mask, vgate_msa
 
-            # Optimization: Context Attention
-            # We can reuse the norm calculation or just compute it fresh.
-            # To be safe with residual connections, we compute fresh, but scale in-place.
-            norm_vx = rms_norm(vx, eps=self.norm_eps)
-            # No ada modulation for context attn in this block usually, but if we had it, we'd do it in-place here.
-            attn_out = self.attn2(norm_vx, context=video.context, mask=video.context_mask)
-            vx = vx + attn_out
-
-            del norm_vx, attn_out, vshift_msa, vscale_msa, vgate_msa
+            vx = vx + self.attn2(rms_norm(vx, eps=self.norm_eps), context=video.context, mask=video.context_mask)
 
         # --- Audio Self-Attention & Cross-Attention ---
         if run_ax:
             ashift_msa, ascale_msa, agate_msa = self.get_ada_values(
-                self.audio_scale_shift_table, ax.shape[0], audio.timesteps, slice(0, 3), is_conditioning
+                self.audio_scale_shift_table, ax.shape[0], audio.timesteps, slice(0, 3), is_conditioning=is_conditioning
             )
 
             if not perturbations.all_in_batch(PerturbationType.SKIP_AUDIO_SELF_ATTN, self.idx):
                 norm_ax = rms_norm(ax, eps=self.norm_eps)
                 norm_ax.mul_(1 + ascale_msa).add_(ashift_msa)
+                del ashift_msa, ascale_msa
 
                 a_mask = perturbations.mask_like(PerturbationType.SKIP_AUDIO_SELF_ATTN, self.idx, ax)
-                attn_out = self.audio_attn1(norm_ax, pe=audio.positional_embeddings)
-                ax = ax + attn_out * agate_msa * a_mask
+                ax = ax + self.audio_attn1(norm_ax, pe=audio.positional_embeddings) * agate_msa * a_mask
 
-                del norm_ax, attn_out, a_mask
-
-            del ashift_msa, ascale_msa, agate_msa
+                del norm_ax, agate_msa, a_mask
 
             # Audio Context Attention
-            norm_ax = rms_norm(ax, eps=self.norm_eps)
-            attn_out = self.audio_attn2(norm_ax, context=audio.context, mask=audio.context_mask)
-            ax = ax + attn_out
-            del norm_ax, attn_out
+            ax = ax + self.audio_attn2(rms_norm(ax, eps=self.norm_eps), context=audio.context, mask=audio.context_mask)
 
         # --- Audio - Video Cross Attention (MEMORY OPTIMIZED) ---
         if run_a2v or run_v2a:
@@ -229,6 +215,7 @@ class BasicAVTransformerBlock(torch.nn.Module):
                     ax.shape[0],
                     audio.cross_scale_shift_timestep,
                     audio.cross_gate_timestep,
+                    is_conditioning=is_conditioning,
                 )
 
                 (
@@ -242,6 +229,7 @@ class BasicAVTransformerBlock(torch.nn.Module):
                     vx.shape[0],
                     video.cross_scale_shift_timestep,
                     video.cross_gate_timestep,
+                    is_conditioning=is_conditioning,
                 )
 
                 a2v_mask = perturbations.mask_like(PerturbationType.SKIP_A2V_CROSS_ATTN, self.idx, vx)
@@ -290,6 +278,7 @@ class BasicAVTransformerBlock(torch.nn.Module):
                     ax.shape[0],
                     audio.cross_scale_shift_timestep,
                     audio.cross_gate_timestep,
+                    is_conditioning=is_conditioning,
                 )
 
                 (
@@ -303,6 +292,7 @@ class BasicAVTransformerBlock(torch.nn.Module):
                     vx.shape[0],
                     video.cross_scale_shift_timestep,
                     video.cross_gate_timestep,
+                    is_conditioning=is_conditioning,
                 )
 
                 v2a_mask = perturbations.mask_like(PerturbationType.SKIP_V2A_CROSS_ATTN, self.idx, ax)
@@ -343,28 +333,23 @@ class BasicAVTransformerBlock(torch.nn.Module):
         # --- FFN Layers ---
         if run_vx:
             vshift_mlp, vscale_mlp, vgate_mlp = self.get_ada_values(
-                self.scale_shift_table, vx.shape[0], video.timesteps, slice(3, None), is_conditioning
+                self.scale_shift_table, vx.shape[0], video.timesteps, slice(3, None), is_conditioning=is_conditioning
             )
-            # Optimization: In-place scaling of the normalized input
             vx_scaled = rms_norm(vx, eps=self.norm_eps)
             vx_scaled.mul_(1 + vscale_mlp).add_(vshift_mlp)
+            del vscale_mlp, vshift_mlp
+            vx = vx + self.ff(vx_scaled) * vgate_mlp
 
-            ffn_out = self.ff(vx_scaled)
-            vx = vx + ffn_out * vgate_mlp
-
-            del vshift_mlp, vscale_mlp, vgate_mlp, vx_scaled, ffn_out
+            del vx_scaled
 
         if run_ax:
             ashift_mlp, ascale_mlp, agate_mlp = self.get_ada_values(
-                self.audio_scale_shift_table, ax.shape[0], audio.timesteps, slice(3, None), is_conditioning
+                self.audio_scale_shift_table, ax.shape[0], audio.timesteps, slice(3, None), is_conditioning=is_conditioning
             )
-            # Optimization: In-place scaling
             ax_scaled = rms_norm(ax, eps=self.norm_eps)
             ax_scaled.mul_(1 + ascale_mlp).add_(ashift_mlp)
-
-            ffn_out = self.audio_ff(ax_scaled)
-            ax = ax + ffn_out * agate_mlp
-
-            del ashift_mlp, ascale_mlp, agate_mlp, ax_scaled, ffn_out
+            del ashift_mlp, ascale_mlp
+            ax = ax + self.audio_ff(ax_scaled) * agate_mlp
+            del agate_mlp, ax_scaled
 
         return replace(video, x=vx) if video is not None else None, replace(audio, x=ax) if audio is not None else None

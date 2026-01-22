@@ -198,7 +198,9 @@ class DistilledPipeline:
             fps=frame_rate,
         )
         stage_1_conditionings = []
+        is_conditioning = False
         if images:
+            is_conditioning = True
             video_encoder = self.model_ledger.video_encoder()
             stage_1_conditionings = image_conditionings_by_replacing_latent(
                 images=images,
@@ -222,7 +224,7 @@ class DistilledPipeline:
             components=self.pipeline_components,
             dtype=dtype,
             device=self.device,
-            is_conditioning=len(images) > 0
+            is_conditioning=is_conditioning
         )
         print("Stage 1: Finish denoising loop.", time.time() - startAt)
         torch.cuda.synchronize()
@@ -231,7 +233,7 @@ class DistilledPipeline:
         del stage_1_conditionings
         cleanup_memory()
 
-        if True:  # save step 1 result video
+        if False:  # save step 1 result video
             video_decoder = self.model_ledger.video_decoder()
             decoded_video = vae_decode_video(video_state.latent, video_decoder, tiling_config)
             torch.cuda.synchronize()
@@ -293,7 +295,7 @@ class DistilledPipeline:
             noise_scale=stage_2_sigmas[0],
             initial_video_latent=upscaled_video_latent,
             initial_audio_latent=audio_state.latent,
-            is_conditioning=len(images) > 0
+            is_conditioning=is_conditioning
         )
         print("Stage 2: Finish upsample and refine the video.", time.time() - startAt)
         torch.cuda.synchronize()
