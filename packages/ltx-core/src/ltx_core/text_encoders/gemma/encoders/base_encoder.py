@@ -249,7 +249,7 @@ def module_ops_from_gemma_root(gemma_root: str) -> tuple[ModuleOps, ...]:
             local_files_only=True,
             torch_dtype=torch.bfloat16,
             device_map="auto",
-            max_memory={0: "3GiB", "cpu": "32GiB"}
+            max_memory={0: "2GiB", "cpu": "32GiB"}
         )
         module._gemma_root = module._gemma_root or gemma_root
         return module
