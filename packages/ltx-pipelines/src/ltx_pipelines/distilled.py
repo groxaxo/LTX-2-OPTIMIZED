@@ -79,47 +79,24 @@ class DistilledPipeline:
         )
 
     def get_interpolated_sigmas(self, num_steps: int, device: torch.device) -> torch.Tensor:
-        # The original 8-step schedule provided by LTX
-        original_sigmas = DISTILLED_SIGMA_VALUES  #  [1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0]
-
-        # Create x-axis for original data (0 to 1)
+        original_sigmas = DISTILLED_SIGMA_VALUES
         old_x = np.linspace(0, 1, len(original_sigmas))
-
-        # Create x-axis for new data (we need num_steps + 1 points for num_steps steps)
         new_x = np.linspace(0, 1, num_steps + 1)
-
-        # Linear interpolation to find new values that fit the curve
         new_sigmas = np.interp(new_x, old_x, original_sigmas)
-
-        # Ensure precision and boundaries
-        new_sigmas[0] = original_sigmas[0]  # Force 1.0
-        new_sigmas[-1] = original_sigmas[-1]  # Force 0.0
-
-        # Convert to tensor
+        new_sigmas[0] = original_sigmas[0]
+        new_sigmas[-1] = original_sigmas[-1]
         return torch.tensor(new_sigmas, dtype=torch.float32, device=device)
 
     def get_interpolated_sigmas2(self, num_steps: int, device: torch.device) -> torch.Tensor:
-        # The original 8-step schedule provided by LTX
-        original_sigmas = STAGE_2_DISTILLED_SIGMA_VALUES  #  [1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0]
-
-        # Create x-axis for original data (0 to 1)
+        original_sigmas = STAGE_2_DISTILLED_SIGMA_VALUES
         old_x = np.linspace(0, 1, len(original_sigmas))
-
-        # Create x-axis for new data (we need num_steps + 1 points for num_steps steps)
         new_x = np.linspace(0, 1, num_steps + 1)
-
-        # Linear interpolation to find new values that fit the curve
         new_sigmas = np.interp(new_x, old_x, original_sigmas)
-
-        # Ensure precision and boundaries
-        new_sigmas[0] = original_sigmas[0]  # Force 1.0
-        new_sigmas[-1] = original_sigmas[-1]  # Force 0.0
-
-        # Convert to tensor
+        new_sigmas[0] = original_sigmas[0]
+        new_sigmas[-1] = original_sigmas[-1]
         return torch.tensor(new_sigmas, dtype=torch.float32, device=device)
 
     @torch.inference_mode()
-    #@profile
     def __call__(
             self,
             prompt: str,
@@ -131,6 +108,9 @@ class DistilledPipeline:
             images: list[tuple[str, int, float]],
             tiling_config: TilingConfig | None = None,
             enhance_prompt: bool = False,
+            output_path: str = '',
+            video_chunks_number: int = 0,
+            fps: int = 0,
     ) -> tuple[Iterator[torch.Tensor], torch.Tensor]:
         print("Preparing Inference")
         startAt = time.time()
@@ -141,23 +121,20 @@ class DistilledPipeline:
         stepper = EulerDiffusionStep()
         dtype = torch.bfloat16
 
-        # --- DISK CACHE LOGIC START ---
+        # --- PROMPT CACHE LOGIC START ---
         CACHE_DIR = "./prompt_embeddings_cache"
         os.makedirs(CACHE_DIR, exist_ok=True)
 
-        # 1. Create a unique hash string based on inputs that affect text encoding
-        # Distilled pipeline usually doesn't use negative prompts, so we exclude it from the hash
         image_identifier = images[0][0] if (len(images) > 0 and enhance_prompt) else "no_img"
 
         hash_input_str = (
             f"prompt:{prompt}|"
-            f"pipeline:distilled|"  # Differentiates from standard t2v if they share a folder
+            f"pipeline:distilled|"
             f"enhance:{enhance_prompt}|"
             f"seed:{seed if enhance_prompt else 'ignored'}|"
             f"img:{image_identifier}"
         )
 
-        # Create MD5 hash for filename
         cache_filename = hashlib.md5(hash_input_str.encode('utf-8')).hexdigest() + ".pt"
         cache_path = os.path.join(CACHE_DIR, cache_filename)
 
@@ -166,29 +143,20 @@ class DistilledPipeline:
         if os.path.exists(cache_path):
             print(f"Prompt cache hit! Loading embeddings from {cache_path}")
             try:
-                # Load directly to the correct device
-                # For distilled, we only saved context_p
                 context_p = torch.load(cache_path, map_location=self.device)
             except Exception as e:
                 print(f"Failed to load cache (corrupted?): {e}. Regenerating.")
 
-        # If cache miss or load failed
         if context_p is None:
             print("Prompt cache miss. Running text encoder.")
             text_encoder = self.model_ledger.text_encoder()
-
-            # Logic to handle prompt enhancement
             current_prompt = prompt
             if enhance_prompt:
                 current_prompt = generate_enhanced_prompt(
                     text_encoder, prompt, images[0][0] if len(images) > 0 else None
                 )
-
-            # In distilled pipeline, we usually only take the first element (positive)
-            # and there is no negative context generated
             context_p = encode_text(text_encoder, prompts=[current_prompt])[0]
 
-            # Save to disk for next time
             print(f"Saving embeddings to {cache_path}")
             torch.save(context_p, cache_path)
             print("Prompt encoded.", time.time() - startAt)
@@ -196,9 +164,8 @@ class DistilledPipeline:
             torch.cuda.synchronize()
             del text_encoder
             cleanup_memory()
-        # --- DISK CACHE LOGIC END ---
+        # --- PROMPT CACHE LOGIC END ---
 
-        # Unpack the positive context (Distilled usually splits this into video/audio context)
         video_context, audio_context = context_p
 
         print("Stage 1: Initial low resolution video generation.")
@@ -206,7 +173,8 @@ class DistilledPipeline:
 
         transformer = self.model_ledger.transformer()
         stage_1_sigmas = torch.Tensor(DISTILLED_SIGMA_VALUES).to(self.device)
-        #stage_1_sigmas = self.get_interpolated_sigmas(12, self.device)
+        # stage_1_sigmas = self.get_interpolated_sigmas(16, self.device)
+
         def denoising_loop(
                 sigmas: torch.Tensor, video_state: LatentState, audio_state: LatentState, stepper: DiffusionStepProtocol
         ) -> tuple[LatentState, LatentState]:
@@ -261,6 +229,29 @@ class DistilledPipeline:
         del stage_1_conditionings
         cleanup_memory()
 
+        if False:  # save step 1 result video
+            video_decoder = self.model_ledger.video_decoder()
+            decoded_video = vae_decode_video(video_state.latent, video_decoder, tiling_config)
+            torch.cuda.synchronize()
+            del video_decoder
+            cleanup_memory()
+            vocoder = self.model_ledger.vocoder()
+            decoded_audio = vae_decode_audio(
+                audio_state.latent, self.model_ledger.audio_decoder(), vocoder
+            )
+            torch.cuda.synchronize()
+            del vocoder
+            cleanup_memory()
+
+            encode_video(
+                video=decoded_video,
+                fps=fps,
+                audio=decoded_audio,
+                audio_sample_rate=AUDIO_SAMPLE_RATE,
+                output_path=output_path.replace('.mp4', '_.mp4'),
+                video_chunks_number=video_chunks_number,
+            )
+
         print("Stage 2: Upsample and refine the video at higher resolution with distilled LORA.", time.time() - startAt)
         # Stage 2: Upsample and refine the video at higher resolution with distilled LORA.
         video_encoder = self.model_ledger.video_encoder()
@@ -269,7 +260,7 @@ class DistilledPipeline:
             latent=video_state.latent[:1], video_encoder=video_encoder, upsampler=upsampler
         )
         stage_2_sigmas = torch.Tensor(STAGE_2_DISTILLED_SIGMA_VALUES).to(self.device)
-        #stage_2_sigmas = self.get_interpolated_sigmas2(4, self.device)
+        #stage_2_sigmas = self.get_interpolated_sigmas2(10, self.device)
         stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
         stage_2_conditionings = []
         if images:
@@ -347,6 +338,9 @@ def main() -> None:
         images=args.images,
         tiling_config=tiling_config,
         enhance_prompt=args.enhance_prompt,
+        output_path=args.output_path,
+        video_chunks_number=video_chunks_number,
+        fps=args.frame_rate,
     )
 
     encode_video(
