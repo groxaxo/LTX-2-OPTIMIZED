@@ -28,7 +28,7 @@ from accelerate import dispatch_model, infer_auto_device_map
 @dataclass(frozen=True)
 class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType], LoRAAdaptableProtocol):
     """
-    Builder for PyTorch models residing on a single GPU or offloaded via Accelerate.
+    Builder for PyTorch models residing on a single GPU.
     """
 
     model_class_configurator: type[ModelConfigurator[ModelType]]
@@ -79,18 +79,13 @@ class SingleGPUModelBuilder(Generic[ModelType], ModelBuilderProtocol[ModelType],
             max_memory: dict[int | str, str] | None = None
     ) -> ModelType:
         target_device = torch.device("cuda") if device is None else device
-
-        # 1. Get Config and Meta Model
         config = self.model_config()
         meta_model = self.meta_model(config, self.module_ops)
-
-        # 2. Load Base State Dict
         model_paths = self.model_path if isinstance(self.model_path, tuple) else [self.model_path]
         load_device = target_device if max_memory is None else torch.device("cpu")
         model_state_dict = self.load_sd(model_paths, sd_ops=self.model_sd_ops, registry=self.registry,
                                         device=load_device)
 
-        # 3. Handle LoRAs
         lora_strengths = [lora.strength for lora in self.loras]
         final_sd_map = {}
 

@@ -29,17 +29,17 @@ LORA_OPTIONS = [
 
 # Resolution Presets with Max Frame Data for 8GB VRAM
 PRESETS = {
-    "1280x704 (Landscape)": {"w": 1280, "h": 704, "max_frames": 209},
-    "704x1280 (Vertical)": {"w": 704, "h": 1280, "max_frames": 209},
+    "1280x704 (Landscape)": {"w": 1280, "h": 704, "max_frames": 225},
+    "704x1280 (Vertical)": {"w": 704, "h": 1280, "max_frames": 225},
 
     "1536x1024 (Standard)": {"w": 1536, "h": 1024, "max_frames": 121},
     "1024x1536 (Vertical)": {"w": 1024, "h": 1536, "max_frames": 121},
 
-    "1600x896 (Landscape)": {"w": 1600, "h": 896, "max_frames": 121},
-    "896x1600 (Vertical)": {"w": 8996, "h": 1600, "max_frames": 121},
+    "1600x896 (Landscape)": {"w": 1600, "h": 896, "max_frames": 145},
+    "896x1600 (Vertical)": {"w": 896, "h": 1600, "max_frames": 145},
 
-    "1920x1088 (HD)": {"w": 1920, "h": 1088, "max_frames": 89},
-    "1088x1920 (HD Vert)": {"w": 1088, "h": 1920, "max_frames": 89},
+    "1920x1088 (HD)": {"w": 1920, "h": 1088, "max_frames": 97},
+    "1088x1920 (HD Vert)": {"w": 1088, "h": 1920, "max_frames": 97},
 
     "2560x1408 (2K)": {"w": 2560, "h": 1408, "max_frames": 49},
     "1408x2560 (2K Vert)": {"w": 1408, "h": 2560, "max_frames": 49},
