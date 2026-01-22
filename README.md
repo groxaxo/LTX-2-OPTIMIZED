@@ -76,7 +76,7 @@ python web_ui_v2.py
 | 3840 x 2176 | 17         | ~315 sec                           |
 * +60 sec for prompt (if not empty/not cached) 
 ```
-* UPD: optimized transformer code, increased max frames by 40%, generation speed 300..315 -> 385..415 sec
+* UPD: optimized transformer code, increased max frames by 40%, generation speed 300..315 -> 385..415 sec, (1280x704 11sec 24fps, 1920x1088 5sec 24fps)
 
 
 **Credits**
