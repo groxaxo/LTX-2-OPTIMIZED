@@ -71,12 +71,9 @@ try:
 
         # Store the result
         tl.store(output_ptr + offsets, output, mask=mask)
-    print("used triton kernels")
+
 except Exception:
     import torch
-
-    print("used torch kernels")
-
 
     def fused_add_round_kernel(
             x: torch.Tensor,

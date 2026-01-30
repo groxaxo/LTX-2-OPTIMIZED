@@ -180,6 +180,7 @@ def basic_arg_parser() -> argparse.ArgumentParser:
         "Note that calculations are still performed in bfloat16 precision.",
     )
     parser.add_argument("--enhance-prompt", action="store_true")
+    parser.add_argument("--disable-audio", action="store_true")
     return parser
 
 

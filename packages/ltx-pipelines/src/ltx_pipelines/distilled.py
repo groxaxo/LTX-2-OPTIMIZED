@@ -42,6 +42,7 @@ device = get_device()
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("accelerate").setLevel(logging.ERROR)
+logging.getLogger("ltx_core").setLevel(logging.ERROR)
 
 
 class DistilledPipeline:
@@ -111,6 +112,7 @@ class DistilledPipeline:
             output_path: str = '',
             video_chunks_number: int = 0,
             fps: int = 0,
+            disable_audio: bool = True,
     ) -> tuple[Iterator[torch.Tensor], torch.Tensor]:
         print("Preparing Inference")
         startAt = time.time()
@@ -175,6 +177,11 @@ class DistilledPipeline:
         stage_1_sigmas = torch.Tensor(DISTILLED_SIGMA_VALUES).to(self.device)
         # stage_1_sigmas = self.get_interpolated_sigmas(16, self.device)
 
+        if not disable_audio:
+            pass
+        else:
+            audio_context = None
+
         def denoising_loop(
                 sigmas: torch.Tensor, video_state: LatentState, audio_state: LatentState, stepper: DiffusionStepProtocol, is_conditioning: bool = True
         ) -> tuple[LatentState, LatentState]:
@@ -188,7 +195,9 @@ class DistilledPipeline:
                     audio_context=audio_context,
                     transformer=transformer,  # noqa: F821
                     is_conditioning=is_conditioning,
+                    disable_audio=disable_audio,
                 ),
+                disable_audio=disable_audio,
             )
         stage_1_output_shape = VideoPixelShape(
             batch=1,
@@ -233,19 +242,22 @@ class DistilledPipeline:
         del stage_1_conditionings
         cleanup_memory()
 
-        if False:  # save step 1 result video
+        if True:  # save step 1 result video
             video_decoder = self.model_ledger.video_decoder()
             decoded_video = vae_decode_video(video_state.latent, video_decoder, tiling_config)
             torch.cuda.synchronize()
             del video_decoder
             cleanup_memory()
-            vocoder = self.model_ledger.vocoder()
-            decoded_audio = vae_decode_audio(
-                audio_state.latent, self.model_ledger.audio_decoder(), vocoder
-            )
-            torch.cuda.synchronize()
-            del vocoder
-            cleanup_memory()
+            if not disable_audio:
+                vocoder = self.model_ledger.vocoder()
+                decoded_audio = vae_decode_audio(
+                    audio_state.latent, self.model_ledger.audio_decoder(), vocoder
+                )
+                torch.cuda.synchronize()
+                del vocoder
+                cleanup_memory()
+            else:
+                decoded_audio = None
 
             encode_video(
                 video=decoded_video,
@@ -264,7 +276,7 @@ class DistilledPipeline:
             latent=video_state.latent[:1], video_encoder=video_encoder, upsampler=upsampler
         )
         stage_2_sigmas = torch.Tensor(STAGE_2_DISTILLED_SIGMA_VALUES).to(self.device)
-        #stage_2_sigmas = self.get_interpolated_sigmas2(10, self.device)
+        # stage_2_sigmas = self.get_interpolated_sigmas2(10, self.device)
         stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
         stage_2_conditionings = []
         if images:
@@ -282,6 +294,11 @@ class DistilledPipeline:
         del upsampler
         del video_state
         cleanup_memory()
+
+        audio_latents = None
+        if not disable_audio:
+            audio_latents = audio_state.latent
+
         video_state, audio_state = denoise_audio_video(
             output_shape=stage_2_output_shape,
             conditionings=stage_2_conditionings,
@@ -294,7 +311,7 @@ class DistilledPipeline:
             device=self.device,
             noise_scale=stage_2_sigmas[0],
             initial_video_latent=upscaled_video_latent,
-            initial_audio_latent=audio_state.latent,
+            initial_audio_latent=audio_latents,
             is_conditioning=is_conditioning
         )
         print("Stage 2: Finish upsample and refine the video.", time.time() - startAt)
@@ -309,12 +326,16 @@ class DistilledPipeline:
         decoded_video = vae_decode_video(video_state.latent, video_decoder, tiling_config)
         del video_decoder
         cleanup_memory()
-        vocoder = self.model_ledger.vocoder()
-        decoded_audio = vae_decode_audio(
-            audio_state.latent, self.model_ledger.audio_decoder(), vocoder
-        )
-        del vocoder
-        cleanup_memory()
+
+        if not disable_audio:
+            vocoder = self.model_ledger.vocoder()
+            decoded_audio = vae_decode_audio(
+                audio_state.latent, self.model_ledger.audio_decoder(), vocoder
+            )
+            del vocoder
+            cleanup_memory()
+        else:
+            decoded_audio = None
         print("Stage 3: Done.", time.time() - startAt)
         return decoded_video, decoded_audio
 
@@ -346,6 +367,7 @@ def main() -> None:
         output_path=args.output_path,
         video_chunks_number=video_chunks_number,
         fps=args.frame_rate,
+        disable_audio=args.disable_audio,
     )
 
     encode_video(

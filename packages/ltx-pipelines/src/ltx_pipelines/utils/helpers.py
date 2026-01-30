@@ -94,9 +94,10 @@ def image_conditionings_by_adding_guiding_latent(
 def euler_denoising_loop(
     sigmas: torch.Tensor,
     video_state: LatentState,
-    audio_state: LatentState,
+    audio_state: LatentState | None,
     stepper: DiffusionStepProtocol,
     denoise_fn: DenoisingFunc,
+    disable_audio: bool = False
 ) -> tuple[LatentState, LatentState]:
     """
     Perform the joint audio-video denoising loop over a diffusion schedule.
@@ -133,10 +134,12 @@ def euler_denoising_loop(
         denoised_video, denoised_audio = denoise_fn(video_state, audio_state, sigmas, step_idx)  # 100%
 
         denoised_video = post_process_latent(denoised_video, video_state.denoise_mask, video_state.clean_latent)
-        denoised_audio = post_process_latent(denoised_audio, audio_state.denoise_mask, audio_state.clean_latent)
+        if not disable_audio:
+            denoised_audio = post_process_latent(denoised_audio, audio_state.denoise_mask, audio_state.clean_latent)
 
         video_state = replace(video_state, latent=stepper.step(video_state.latent, denoised_video, sigmas, step_idx))
-        audio_state = replace(audio_state, latent=stepper.step(audio_state.latent, denoised_audio, sigmas, step_idx))
+        if not disable_audio:
+            audio_state = replace(audio_state, latent=stepper.step(audio_state.latent, denoised_audio, sigmas, step_idx))
 
     return (video_state, audio_state)
 
@@ -331,14 +334,17 @@ def timesteps_from_mask(denoise_mask: torch.Tensor, sigma: float | torch.Tensor)
 
 #@profile
 def simple_denoising_func(
-    video_context: torch.Tensor, audio_context: torch.Tensor, transformer: X0Model, is_conditioning
+    video_context: torch.Tensor, audio_context: torch.Tensor | None, transformer: X0Model, is_conditioning: bool = True, disable_audio: bool = False
 ) -> DenoisingFunc:
     def simple_denoising_step(
         video_state: LatentState, audio_state: LatentState, sigmas: torch.Tensor, step_index: int
     ) -> tuple[torch.Tensor, torch.Tensor]:
         sigma = sigmas[step_index]
         pos_video = modality_from_latent_state(video_state, video_context, sigma)
-        pos_audio = modality_from_latent_state(audio_state, audio_context, sigma)
+        if disable_audio:
+            pos_audio = None
+        else:
+            pos_audio = modality_from_latent_state(audio_state, audio_context, sigma)
 
         denoised_video, denoised_audio = transformer(video=pos_video, audio=pos_audio, perturbations=None, is_conditioning=is_conditioning)  # 100%
         return denoised_video, denoised_audio
