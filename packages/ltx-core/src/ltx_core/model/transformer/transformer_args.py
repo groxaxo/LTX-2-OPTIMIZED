@@ -84,13 +84,15 @@ class TransformerArgsPreprocessor:
         return context, attention_mask
 
     def _prepare_attention_mask(self, attention_mask: torch.Tensor | None, x_dtype: torch.dtype) -> torch.Tensor | None:
-        """Prepare attention mask."""
         if attention_mask is None or torch.is_floating_point(attention_mask):
             return attention_mask
 
-        return (attention_mask - 1).to(x_dtype).reshape(
+        # Allocate once for the cast and reshape, then scale in-place
+        mask = (attention_mask - 1).to(x_dtype).reshape(
             (attention_mask.shape[0], 1, -1, attention_mask.shape[-1])
-        ) * torch.finfo(x_dtype).max
+        )
+        mask.mul_(torch.finfo(x_dtype).max)
+        return mask
 
     def _prepare_positional_embeddings(
         self,

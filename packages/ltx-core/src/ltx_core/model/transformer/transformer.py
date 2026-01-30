@@ -106,7 +106,7 @@ class BasicAVTransformerBlock(torch.nn.Module):
 
         if is_conditioning == False:
             if timestep.dim() > 2 and timestep.shape[1] > 1:
-                timestep = timestep[:, [0], ...]
+                timestep = timestep[:, 0:1, ...]
 
         table_slice = scale_shift_table[indices]
         if table_slice.device != timestep.device or table_slice.dtype != timestep.dtype:
@@ -117,6 +117,30 @@ class BasicAVTransformerBlock(torch.nn.Module):
                 + timestep.reshape(batch_size, timestep.shape[1], num_ada_params, -1)[:, :, indices, :]
         ).unbind(dim=2)
         return ada_values
+
+    def get_ada_values_(
+            self,
+            scale_shift_table: torch.Tensor,
+            batch_size: int,
+            timestep: torch.Tensor,
+            indices: slice,
+            is_conditioning: bool = False
+    ) -> tuple[torch.Tensor, ...]:
+        if not is_conditioning and timestep.dim() > 2 and timestep.shape[1] > 1:
+            timestep = timestep[:, 0:1]
+
+        table_slice = scale_shift_table[indices]
+
+        if table_slice.device != timestep.device or table_slice.dtype != timestep.dtype:
+            table_slice = table_slice.to(device=timestep.device, dtype=timestep.dtype, non_blocking=True)
+
+        ts_view = timestep.reshape(batch_size, timestep.shape[1], scale_shift_table.shape[0], -1)
+        ts_chunk = ts_view[:, :, indices]
+
+        return tuple(
+            chunk.add(param)
+            for chunk, param in zip(ts_chunk.unbind(2), table_slice)
+        )
 
     def get_av_ca_ada_values(
             self,

@@ -180,8 +180,10 @@ class Attention(torch.nn.Module):
     ) -> torch.Tensor:
         q = self.to_q(x)
         context = x if context is None else context
+        del x
         k = self.to_k(context)
         v = self.to_v(context)
+        del context
 
         q = self.q_norm(q)
         k = self.k_norm(k)
@@ -192,4 +194,6 @@ class Attention(torch.nn.Module):
 
         # attention_function can be an enum *or* a custom callable
         out = self.attention_function(q, k, v, self.heads, mask)
+        del q, k, v, mask
+
         return self.to_out(out)
