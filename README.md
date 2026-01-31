@@ -1,4 +1,4 @@
-# LTX-2 Optimized (8GB VRAM Edition) + Web UI
+# LTX-2 Optimized (8GB of VRAM Edition) + Web UI
 
 This repository contains a **modified and optimized version of the LTX-2 Video Generation Model**, designed specifically to run on consumer hardware with as little as **8GB VRAM**. 
 
@@ -13,9 +13,9 @@ It includes a fully-featured **Gradio Web Interface** to make generating videos,
 ## 🚀 Features
 
 *   **8GB VRAM Optimization:** Runs locally on cards like the RTX 3070/4060Ti using FP8 quantization and memory management tweaks.
-*   **Windows 11 support!!!** You can even run it on Windows (not supported in original model).
+*   **Windows 11 support!!!** You can even run it on Windows (not supported in the original model).
 *   **User-Friendly Web UI:** Control everything from your browser.
-*   **Smart "Safe Mode":** The UI automatically limits the frame count based on selected resolution to prevent Out-Of-Memory (OOM) errors. (if you do not have 8 Gb free vram try to decrease frames count)
+*   **Smart "Safe Mode":** The UI automatically limits the frame count based on selected resolution to prevent Out-Of-Memory (OOM) errors. (If you do not have 8GB of free VRAM, try decreasing the frame count.)
 *   **Real-time Logging:** View the generation progress and console output directly in the web interface.
 *   **Advanced Features:**
     *   **Image Conditioning:** Upload reference images.
@@ -45,7 +45,7 @@ mkdir models/loras
     gemma-3 files
 
 ./models/loras/
-    lora files here
+    LoRA files here
 ```
 **3. Install all required modules:**
 ```
@@ -71,8 +71,8 @@ or
 python web_ui_v4.py
 ```
 
-**📊 Performance & Presets (8GB VRAM)**
-* The Web UI includes an "8GB VRAM Safe Mode" checkbox. When enabled, it enforces the following limits to ensure you don't crash your GPU. Est. inference time on 3070Ti laptop GPU ~300sec for all presets.
+**📊 Performance & Presets (8GB of VRAM)**
+* The Web UI includes an "8GB VRAM Safe Mode" checkbox. When enabled, it enforces the following limits to ensure you don't crash your GPU. Est. inference time on RTX 3070 Ti laptop GPU ~300sec for all presets.
 ```
 | Resolution  | Max Frames i2v| t2v  | Est. Time (3070ti laptop 8gb vram) |
 | :---------- | :------------ |:---- |:---------------------------------- |
@@ -94,7 +94,7 @@ python web_ui_v4.py
 * Web UI: Created for the community to make this powerful model accessible.
 
 Original Model: 
-* (you can find links to all model files and loras bellow)
+* (you can find links to all model files and loras below)
 
 
 ## LTX-2
