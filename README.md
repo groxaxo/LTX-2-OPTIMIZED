@@ -1,6 +1,6 @@
 # LTX-2 Optimized (8GB of VRAM Edition) + Web UI
 
-This repository contains a **modified and optimized version of the LTX-2 Video Generation Model**, designed specifically to run on consumer hardware with as little as **8GB VRAM**. 
+This repository contains a **modified and optimized version of the LTX-2 Video Generation Model**, designed specifically to run on consumer hardware with as little as **8GB of VRAM**. 
 
 It includes a fully-featured **Gradio Web Interface** to make generating videos, managing presets, and applying LoRAs easy without needing to remember complex command-line arguments.
 ## Web UI v2
