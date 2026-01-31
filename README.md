@@ -74,14 +74,15 @@ python web_ui_v4.py
 **📊 Performance & Presets (8GB VRAM)**
 * The Web UI includes an "8GB VRAM Safe Mode" checkbox. When enabled, it enforces the following limits to ensure you don't crash your GPU. Est. inference time on 3070Ti laptop GPU ~300sec for all presets.
 ```
-| Resolution  | Max Frames | Est. Time (3070ti laptop 8gb vram) |
-| :---------- | :--------- | :--------------------------------- |
-| 1280 x 704  | 177        | ~300 sec                           |
-| 1536 x 1024 | 121        | ~300 sec                           |
-| 1920 x 1088 | 81         | ~300 sec                           |
-| 2560 x 1408 | 49         | ~315 sec                           |
-| 3840 x 2176 | 17         | ~315 sec                           |
-* +60 sec for prompt (if not empty/not cached) 
+| Resolution  | Max Frames i2v| t2v  | Est. Time (3070ti laptop 8gb vram) |
+| :---------- | :------------ |:---- |:---------------------------------- |
+| 1280 x 704  | 177           | 257  | ~300..400 sec                      |
+| 1536 x 1024 | 121           | 185  | ~300..400 sec                      |
+| 1920 x 1088 | 81            | 121  | ~300..400 sec                      |
+| 2560 x 1408 | 49            | 65   | ~300..400 sec                      |
+| 3840 x 2176 | 17            | 25   | ~300..400 sec                      |
+* +60 sec for prompt (if not empty/not cached)
+* time to stage 1 prewiev 80..150 sec
 ```
 * UPD: optimized transformer code, increased max frames by 40% for text to video, generation speed 300..315 -> 385..415 sec, (1280x704 11sec 24fps, 1920x1088 5sec 24fps)
 * UPD2: added web ui v4, stage 1 video preview, task queue, prompt constructor, disable audio option (faster inference 10-30%)
