@@ -15,7 +15,7 @@ It includes a fully-featured **Gradio Web Interface** to make generating videos,
 *   **8GB VRAM Optimization:** Runs locally on cards like the RTX 3070/4060Ti using FP8 quantization and memory management tweaks.
 *   **Windows 11 support!!!** You can even run it on Windows (not supported in original model).
 *   **User-Friendly Web UI:** Control everything from your browser.
-*   **Smart "Safe Mode":** The UI automatically limits the frame count based on selected resolution to prevent Out-Of-Memory (OOM) errors. (if you do not have 8 Gb free vram try decrease frames count)
+*   **Smart "Safe Mode":** The UI automatically limits the frame count based on selected resolution to prevent Out-Of-Memory (OOM) errors. (if you do not have 8 Gb free vram try to decrease frames count)
 *   **Real-time Logging:** View the generation progress and console output directly in the web interface.
 *   **Advanced Features:**
     *   **Image Conditioning:** Upload reference images.
