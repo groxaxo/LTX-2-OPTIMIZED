@@ -3,8 +3,11 @@
 This repository contains a **modified and optimized version of the LTX-2 Video Generation Model**, designed specifically to run on consumer hardware with as little as **8GB VRAM**. 
 
 It includes a fully-featured **Gradio Web Interface** to make generating videos, managing presets, and applying LoRAs easy without needing to remember complex command-line arguments.
-
+## Web UI v2
 <img width="2260" height="1078" alt="image" src="https://github.com/user-attachments/assets/5a9f5dce-f313-44a3-bbbe-10eccc002191" />
+
+## Web UI v4
+<img width="949" height="575" alt="scr221" src="https://github.com/user-attachments/assets/2e3a6c51-51b8-4487-b64d-a7d2c41d794a" />
 
 
 ## 🚀 Features
@@ -62,6 +65,10 @@ xformers==0.0.32.post2
 Run the web interface with a single command:
 ```Bash
 python web_ui_v2.py
+
+or
+
+python web_ui_v4.py
 ```
 
 **📊 Performance & Presets (8GB VRAM)**
@@ -77,6 +84,7 @@ python web_ui_v2.py
 * +60 sec for prompt (if not empty/not cached) 
 ```
 * UPD: optimized transformer code, increased max frames by 40% for text to video, generation speed 300..315 -> 385..415 sec, (1280x704 11sec 24fps, 1920x1088 5sec 24fps)
+* UPD2: added web ui v4, stage 1 video preview, task queue, prompt constructor, disable audio option (faster inference 10-30%)
 
 
 **Credits**
