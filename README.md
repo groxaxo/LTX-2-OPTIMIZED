@@ -82,7 +82,7 @@ python web_ui_v4.py
 | 2560 x 1408 | 49            | 65   | ~300..400 sec                      |
 | 3840 x 2176 | 17            | 25   | ~300..400 sec                      |
 * +60 sec for prompt (if not empty/not cached)
-* time to stage 1 prewiev 80..150 sec
+* time to stage 1 preview 80..150 sec
 ```
 * UPD: optimized transformer code, increased max frames by 40% for text to video, generation speed 300..315 -> 385..415 sec, (1280x704 11sec 24fps, 1920x1088 5sec 24fps)
 * UPD2: added web ui v4, stage 1 video preview, task queue, prompt constructor, disable audio option (faster inference 10-30%)
