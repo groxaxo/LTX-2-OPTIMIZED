@@ -113,6 +113,7 @@ class DistilledPipeline:
             video_chunks_number: int = 0,
             fps: int = 0,
             disable_audio: bool = True,
+            save_step_1_preview: bool = True,
     ) -> tuple[Iterator[torch.Tensor], torch.Tensor]:
         print("Preparing Inference")
         startAt = time.time()
@@ -242,7 +243,7 @@ class DistilledPipeline:
         del stage_1_conditionings
         cleanup_memory()
 
-        if True:  # save step 1 result video
+        if save_step_1_preview:
             video_decoder = self.model_ledger.video_decoder()
             decoded_video = vae_decode_video(video_state.latent, video_decoder, tiling_config)
             torch.cuda.synchronize()
