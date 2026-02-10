@@ -9,6 +9,13 @@ It includes a fully-featured **Gradio Web Interface** to make generating videos,
 ## Web UI v4
 <img width="949" height="575" alt="scr221" src="https://github.com/user-attachments/assets/2e3a6c51-51b8-4487-b64d-a7d2c41d794a" />
 
+## CinemaMaker UI
+<img width="612" height="343" alt="cm" src="https://github.com/user-attachments/assets/0f5f2dca-bacd-4f5f-a627-505ad3751277" />
+
+* https://youtu.be/eGOq0hUiri4
+* https://youtu.be/HAQqzPdDIj0
+
+
 
 ## 🚀 Features
 
