@@ -24,6 +24,7 @@ from ltx_pipelines.utils.types import (
     DenoisingLoopFunc,
     PipelineComponents,
 )
+from ltx_pipelines.utils.constants import AUDIO_SAMPLE_RATE
 
 
 def get_device() -> torch.device:
@@ -255,7 +256,7 @@ def noise_audio_state(
     audio latent tools for further processing. If initial_latent is provided, it will be used to create the initial
     state, otherwise an empty initial state will be created.
     """
-    audio_latent_shape = AudioLatentShape.from_video_pixel_shape(output_shape)
+    audio_latent_shape = AudioLatentShape.from_video_pixel_shape(output_shape, sample_rate=AUDIO_SAMPLE_RATE)
     audio_tools = AudioLatentTools(components.audio_patchifier, audio_latent_shape)
     audio_state = create_noised_state(
         tools=audio_tools,
