@@ -3,13 +3,11 @@ import subprocess
 import os
 import datetime
 import threading
-import json
 import sys
-import shutil
 import math
 import torchaudio
 from collections import deque
-import cv2  # For frame extraction
+import cv2
 
 # --- Configuration & Defaults ---
 DEFAULT_CHECKPOINT = "./models/ltx-2-19b-distilled-fp8.safetensors"
@@ -114,7 +112,7 @@ def slice_audio(audio_path, prompt, fps, num_frames):
         SCENES_DATA = new_scenes_data
         
         # Prepare UI updates
-        for i in range(20): 
+        for i in range(20):
             if i < num_scenes:
                 # Row visible, Textbox updated
                 ui_updates.append(gr.update(visible=True)) # Row
