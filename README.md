@@ -15,6 +15,11 @@ It includes a fully-featured **Gradio Web Interface** to make generating videos,
 * https://youtu.be/eGOq0hUiri4
 * https://youtu.be/HAQqzPdDIj0
 
+## Music to Video UI
+<img width="612" height="343" alt="cm" src="https://github.com/user-attachments/assets/852845f9-f113-41f7-a5e6-8a4e1dec0778" />
+
+* https://youtu.be/HzK1nW-OVtQ
+
 
 
 ## 🚀 Features
