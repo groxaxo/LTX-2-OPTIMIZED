@@ -118,10 +118,14 @@ def slice_audio(audio_path, prompt, fps, num_frames):
                 ui_updates.append(gr.update(visible=True)) # Row
                 ui_updates.append(gr.update(value=prompt, visible=True)) # Textbox
                 ui_updates.append(gr.update(value=new_scenes_data[i]['audio_path'])) # Audio path display
+                ui_updates.append(gr.update(value=None)) # Start Image
+                ui_updates.append(gr.update(value=None)) # Last Image Override
             else:
                 ui_updates.append(gr.update(visible=False)) # Row
                 ui_updates.append(gr.update(visible=False)) # Textbox
-                ui_updates.append(gr.update(value=None))
+                ui_updates.append(gr.update(value=None)) # Audio
+                ui_updates.append(gr.update(value=None)) # Start Image
+                ui_updates.append(gr.update(value=None)) # Last Image Override
         
         return tuple([f"Sliced into {num_scenes} scenes."] + ui_updates)
         
@@ -129,9 +133,9 @@ def slice_audio(audio_path, prompt, fps, num_frames):
         print(f"DEBUG Error in slice_audio: {str(e)}")
         import traceback
         traceback.print_exc()
-        return tuple([f"Error: {str(e)}"] + [gr.update(visible=False)] * 20 * 3) # Update this count if UI structure changes
+        return tuple([f"Error: {str(e)}"] + [gr.update(visible=False)] * 20 * 5) # Update this count if UI structure changes
 
-def process_chain_generation(scenes_list, checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index=None, mode="forward"):
+def process_chain_generation(scenes_list, audios_list, start_images_list, last_images_list, checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index=None, mode="forward"):
     """
     mode: "forward" (chain from start_index up to end) or "single" (only start_index)
     """
@@ -167,7 +171,7 @@ def process_chain_generation(scenes_list, checkpoint, gemma, upsampler, steps, f
              CURRENT_LOG += f"\nSkipping scene {i+1} : No Data\n"
              continue
              
-        audio_path = scene_data.get('audio_path')
+        audio_path = audios_list[i] or scene_data.get('audio_path')
         scene_id = i + 1
         CURRENT_LOG += f"\n\n--- GENERATING SCENE {scene_id} ---\n"
         
@@ -186,21 +190,37 @@ def process_chain_generation(scenes_list, checkpoint, gemma, upsampler, steps, f
             current_seed = int(os.urandom(4).hex(), 16) % (2 ** 32)
 
         # Standard Continuity (Music Video likely doesn't need context compression as much as continuity? Let's keep Standard for now)
-        if mode == "forward":
+        def get_valid_path(img_data):
+            if not img_data: return None
+            if isinstance(img_data, str) and img_data.strip(): return img_data
+            if isinstance(img_data, dict) and 'path' in img_data and img_data['path']: return img_data['path']
+            return None
+
+        custom_start = get_valid_path(start_images_list[i])
+        
+        if custom_start:
+            conditioning_frames = [(custom_start, 0, 1.0)]
+            CURRENT_LOG += f"Using custom Start Image for Scene {scene_id}\n"
+        elif mode == "forward":
             # Connect to previous scene's LAST frames (112, 120) as starting points (0, 1)
-            if i > 0 and SCENES_DATA[i-1] and SCENES_DATA[i-1]['video_path']:
-                prev_video = SCENES_DATA[i-1]['video_path']
-                
-                cap = cv2.VideoCapture(prev_video)
-                prev_frame_cnt = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                cap.release()
-                last_lat = (prev_frame_cnt - 1) // 8
-                
-                f_prev_l1 = f"scene_{scene_id}_f_prev_last1.jpg"
-                f_prev_l2 = f"scene_{scene_id}_f_prev_last2.jpg"
-                if extract_frame(prev_video, f_prev_l1, (last_lat-1)*8) and extract_frame(prev_video, f_prev_l2, last_lat*8):
-                     conditioning_frames = [(f_prev_l1, 0, 1.0), (f_prev_l2, 1, 0.1)]
-                     CURRENT_LOG += f"Connecting Scene {scene_id} to Scene {i} (last frames as latents)\n"
+            if i > 0:
+                custom_last = get_valid_path(last_images_list[i-1])
+                if custom_last:
+                    conditioning_frames = [(custom_last, 0, 1.0)]
+                    CURRENT_LOG += f"Connecting Scene {scene_id} to Scene {i} (using custom Last Image Override)\n"
+                elif SCENES_DATA[i-1] and SCENES_DATA[i-1]['video_path']:
+                    prev_video = SCENES_DATA[i-1]['video_path']
+                    
+                    cap = cv2.VideoCapture(prev_video)
+                    prev_frame_cnt = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    cap.release()
+                    last_lat = (prev_frame_cnt - 1) // 8
+                    
+                    f_prev_l1 = f"scene_{scene_id}_f_prev_last1.jpg"
+                    f_prev_l2 = f"scene_{scene_id}_f_prev_last2.jpg"
+                    if extract_frame(prev_video, f_prev_l1, (last_lat-1)*8) and extract_frame(prev_video, f_prev_l2, last_lat*8):
+                         conditioning_frames = [(f_prev_l1, 0, 1.0), (f_prev_l2, 1, 0.1)]
+                         CURRENT_LOG += f"Connecting Scene {scene_id} to Scene {i} (last frames as latents)\n"
 
         # Build Command for music_to_video.py
         cmd = [
@@ -260,7 +280,7 @@ def process_chain_generation(scenes_list, checkpoint, gemma, upsampler, steps, f
     CURRENT_LOG += "\n--- GENERATION CYCLE FINISHED ---\n"
     IS_PROCESSING = False
 
-def start_generation_thread(prompts, checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index=None, mode="forward"):
+def start_generation_thread(prompts, audios, start_images, last_images, checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index=None, mode="forward"):
     # Clear subsequent scenes in data if starting a chain or single regeneration logic?
     # For music video, if we regenerate, we keep the audio_path!
     # So we should only clear video_path.
@@ -273,7 +293,7 @@ def start_generation_thread(prompts, checkpoint, gemma, upsampler, steps, fps, w
                 SCENES_DATA[i]['first_frame'] = None
                 SCENES_DATA[i]['last_frame'] = None
 
-    threading.Thread(target=process_chain_generation, args=(prompts, checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index, mode), daemon=True).start()
+    threading.Thread(target=process_chain_generation, args=(prompts, audios, start_images, last_images, checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index, mode), daemon=True).start()
     return "Generation started..."
 
 def stop_generation():
@@ -341,7 +361,7 @@ with gr.Blocks(title="LTX-2 Music Video Maker", theme=theme) as demo:
                 gemma = gr.Textbox(label="Gemma Root", value=DEFAULT_GEMMA)
                 upsampler = gr.Textbox(label="Upsampler", value=DEFAULT_UPSAMPLER)
                 with gr.Row():
-                    steps = gr.Slider(label="Steps", minimum=8, maximum=8, value=8)
+                    steps = gr.Slider(label="Steps", minimum=1, maximum=50, value=8)
                     fps = gr.Number(label="FPS", value=24)
                 with gr.Row():
                     width = gr.Number(label="Width", value=1280)
@@ -363,7 +383,9 @@ with gr.Blocks(title="LTX-2 Music Video Maker", theme=theme) as demo:
             gr.Markdown("### 🎞️ Video Scenes")
             scene_rows = []
             scene_prompts = []
-            scene_audio_labels = [] 
+            scene_audios = [] 
+            scene_start_images = []
+            scene_last_images = []
             scene_videos = []
             scene_previews = []
             scene_reg_chain_btns = []
@@ -375,8 +397,14 @@ with gr.Blocks(title="LTX-2 Music Video Maker", theme=theme) as demo:
                     with gr.Column(scale=3):
                         prompt_box = gr.Textbox(label=f"Scene {i} Prompt", lines=2)
                         scene_prompts.append(prompt_box)
-                        audio_lbl = gr.Textbox(label=f"Scene {i} Audio", interactive=False)
-                        scene_audio_labels.append(audio_lbl)
+                        audio_comp = gr.Audio(label=f"Scene {i} Audio", type="filepath", interactive=True)
+                        scene_audios.append(audio_comp)
+                        
+                        with gr.Row():
+                            start_img = gr.Image(label="Start Image (optional)", type="filepath")
+                            last_img = gr.Image(label="Last Image Override (optional)", type="filepath")
+                            scene_start_images.append(start_img)
+                            scene_last_images.append(last_img)
                         
                         with gr.Row():
                             chain_btn = gr.Button(f"🔗 Chain From {i}", size="sm")
@@ -405,19 +433,21 @@ with gr.Blocks(title="LTX-2 Music Video Maker", theme=theme) as demo:
     slice_btn.click(
         fn=slice_audio,
         inputs=[audio_file, master_prompt, fps, num_frames],
-        outputs=[status_box] + [comp for triple in zip(scene_rows, scene_prompts, scene_audio_labels) for comp in triple]
+        outputs=[status_box] + [comp for tuple_5 in zip(scene_rows, scene_prompts, scene_audios, scene_start_images, scene_last_images) for comp in tuple_5]
     )
     
-    # Helper wrapper to collect all prompts
     def collect_prompts_and_start(*args):
-        # Args structure: [prompts_list..., checkpoint, ..., button_args]
+        # Args structure: [prompts_list..., audios..., start_img..., last_img..., checkpoint, ..., button_args]
         # We need to slice args.
         num_scenes = 20
-        prompts = args[:num_scenes]
-        rest = args[num_scenes:]
-        return start_generation_thread(prompts, *rest)
+        prompts = args[0:20]
+        audios = args[20:40]
+        start_images = args[40:60]
+        last_images = args[60:80]
+        rest = args[80:]
+        return start_generation_thread(prompts, audios, start_images, last_images, *rest)
 
-    all_inputs = scene_prompts + [checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth]
+    all_inputs = scene_prompts + scene_audios + scene_start_images + scene_last_images + [checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth]
     
     generate_btn.click(
         fn=collect_prompts_and_start,
@@ -433,17 +463,23 @@ with gr.Blocks(title="LTX-2 Music Video Maker", theme=theme) as demo:
         def make_chain_fn(index):
             def chain_fn(*args):
                 num_scenes = 20
-                prompts = args[:num_scenes]
-                rest = args[num_scenes:]
-                return start_generation_thread(prompts, *rest, start_index=index, mode="forward")
+                prompts = args[0:20]
+                audios = args[20:40]
+                start_images = args[40:60]
+                last_images = args[60:80]
+                rest = args[80:]
+                return start_generation_thread(prompts, audios, start_images, last_images, *rest, start_index=index, mode="forward")
             return chain_fn
             
         def make_single_fn(index):
             def single_fn(*args):
                 num_scenes = 20
-                prompts = args[:num_scenes]
-                rest = args[num_scenes:]
-                return start_generation_thread(prompts, *rest, start_index=index, mode="single")
+                prompts = args[0:20]
+                audios = args[20:40]
+                start_images = args[40:60]
+                last_images = args[60:80]
+                rest = args[80:]
+                return start_generation_thread(prompts, audios, start_images, last_images, *rest, start_index=index, mode="single")
             return single_fn
 
         scene_reg_chain_btns[i].click(
