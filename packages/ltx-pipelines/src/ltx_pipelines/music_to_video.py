@@ -46,7 +46,7 @@ logging.basicConfig(level=logging.ERROR)
 logging.getLogger("accelerate").setLevel(logging.ERROR)
 logging.getLogger("ltx_core").setLevel(logging.ERROR)
 
-AUDIO_SAMPLE_RATE = 24000
+AUDIO_SAMPLE_RATE = 16000
 
 
 def load_audio_input(audio_path: str, target_sample_rate: int, device: torch.device) -> torch.Tensor:
@@ -276,7 +276,7 @@ class MusicToVideoPipeline:
             cleanup_memory()
 
         if audio_latents is not None:
-             expected_audio_shape = AudioLatentShape.from_video_pixel_shape(stage_1_output_shape)
+             expected_audio_shape = AudioLatentShape.from_video_pixel_shape(stage_1_output_shape, sample_rate=AUDIO_SAMPLE_RATE)
              target_frames = expected_audio_shape.frames
              current_frames = audio_latents.shape[2]
              

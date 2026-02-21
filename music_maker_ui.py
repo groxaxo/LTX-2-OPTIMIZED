@@ -341,12 +341,12 @@ with gr.Blocks(title="LTX-2 Music Video Maker", theme=theme) as demo:
                 gemma = gr.Textbox(label="Gemma Root", value=DEFAULT_GEMMA)
                 upsampler = gr.Textbox(label="Upsampler", value=DEFAULT_UPSAMPLER)
                 with gr.Row():
-                    steps = gr.Slider(label="Steps", minimum=1, maximum=50, value=12)
+                    steps = gr.Slider(label="Steps", minimum=8, maximum=8, value=8)
                     fps = gr.Number(label="FPS", value=24)
                 with gr.Row():
-                    width = gr.Number(label="Width", value=1536)
-                    height = gr.Number(label="Height", value=1024)
-                num_frames = gr.Slider(label="Frames per Scene", minimum=9, maximum=257, step=8, value=121)
+                    width = gr.Number(label="Width", value=1280)
+                    height = gr.Number(label="Height", value=704)
+                num_frames = gr.Slider(label="Frames per Scene", minimum=9, maximum=257, step=8, value=225)
                 
                 slice_btn = gr.Button("🔪 Slice Music & Prepare Scenes", variant="primary")
                 

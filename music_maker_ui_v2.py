@@ -344,7 +344,7 @@ with gr.Blocks(title="LTX-2 Music Video Maker", theme=theme) as demo:
                 gemma = gr.Textbox(label="Gemma Root", value=DEFAULT_GEMMA)
                 upsampler = gr.Textbox(label="Upsampler", value=DEFAULT_UPSAMPLER)
                 with gr.Row():
-                    steps = gr.Slider(label="Steps", minimum=1, maximum=50, value=12)
+                    steps = gr.Slider(label="Steps", minimum=1, maximum=50, value=40)
                     fps = gr.Number(label="FPS", value=24)
                 with gr.Row():
                     width = gr.Number(label="Width", value=1280)

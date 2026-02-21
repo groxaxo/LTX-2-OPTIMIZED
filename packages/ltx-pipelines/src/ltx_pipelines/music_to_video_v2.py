@@ -254,7 +254,7 @@ class MusicToVideoTwoStagesPipeline:
         )
 
         if audio_latents is not None:
-             expected_audio_shape = AudioLatentShape.from_video_pixel_shape(stage_1_output_shape)
+             expected_audio_shape = AudioLatentShape.from_video_pixel_shape(stage_1_output_shape, sample_rate=AUDIO_SAMPLE_RATE)
              target_frames = expected_audio_shape.frames
              current_frames = audio_latents.shape[2]
              
@@ -380,6 +380,19 @@ class MusicToVideoTwoStagesPipeline:
         )
         print("Stage 2: Upsample and refine the video end.", time.time() - startAt)
 
+        stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
+        stage_2_conditionings = []
+        if images:
+            stage_2_conditionings = image_conditionings_by_replacing_latent(
+                images=images,
+                height=stage_2_output_shape.height,
+                width=stage_2_output_shape.width,
+                video_encoder=video_encoder,
+                dtype=dtype,
+                device=self.device,
+            )
+
+        del video_encoder
         cleanup_memory()
 
         transformer = self.stage_2_model_ledger.transformer()
@@ -419,18 +432,6 @@ class MusicToVideoTwoStagesPipeline:
 
             return v_x, a_x
 
-        stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
-        stage_2_conditionings = []
-        if images:
-            stage_2_conditionings = image_conditionings_by_replacing_latent(
-                images=images,
-                height=stage_2_output_shape.height,
-                width=stage_2_output_shape.width,
-                video_encoder=video_encoder,
-                dtype=dtype,
-                device=self.device,
-            )
-
         video_state, audio_state = denoise_audio_video(
             output_shape=stage_2_output_shape,
             conditionings=stage_2_conditionings,
@@ -448,7 +449,6 @@ class MusicToVideoTwoStagesPipeline:
         print("Stage 2: Denoising loop end.", time.time() - startAt)
         
         del transformer
-        del video_encoder
         cleanup_memory()
 
         decoded_video = vae_decode_video(video_state.latent, self.stage_2_model_ledger.video_decoder(), tiling_config)
