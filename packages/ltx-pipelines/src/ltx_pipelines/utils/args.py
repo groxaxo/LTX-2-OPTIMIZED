@@ -276,3 +276,47 @@ def default_2_stage_distilled_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     return parser
+
+
+def default_2_stage_music_arg_parser() -> argparse.ArgumentParser:
+    parser = default_1_stage_arg_parser()
+    parser.set_defaults(height=DEFAULT_2_STAGE_HEIGHT, width=DEFAULT_2_STAGE_WIDTH)
+    
+    for action in parser._actions:
+        if "--height" in action.option_strings:
+            action.help = (
+                f"Height of the generated video in pixels, should be divisible by 64 "
+                f"(default: {DEFAULT_2_STAGE_HEIGHT})."
+            )
+        if "--width" in action.option_strings:
+            action.help = (
+                f"Width of the generated video in pixels, should be divisible by 64 (default: {DEFAULT_2_STAGE_WIDTH})."
+            )
+            
+    parser.add_argument(
+        "--stage-2-checkpoint-path",
+        type=resolve_path,
+        required=True,
+        help=(
+            "Path to LTX-2 distilled model checkpoint (.safetensors file) for the second stage."
+        ),
+    )
+    
+    parser.add_argument(
+        "--spatial-upsampler-path",
+        type=resolve_path,
+        required=True,
+        help=(
+            "Path to the spatial upsampler model used to increase the resolution "
+            "of the generated video in the latent space."
+        ),
+    )
+    
+    parser.add_argument(
+        "--audio-input-path",
+        type=resolve_path,
+        required=False,
+        default=None,
+        help="Path to the input audio file used for conditioning the video."
+    )
+    return parser
