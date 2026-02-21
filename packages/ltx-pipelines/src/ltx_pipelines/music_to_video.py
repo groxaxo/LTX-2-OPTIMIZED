@@ -23,7 +23,6 @@ from ltx_core.types import AudioLatentShape, LatentState, VideoPixelShape
 from ltx_pipelines.utils import ModelLedger
 from ltx_pipelines.utils.args import default_2_stage_distilled_arg_parser
 from ltx_pipelines.utils.constants import (
-    AUDIO_SAMPLE_RATE,
     DISTILLED_SIGMA_VALUES,
     STAGE_2_DISTILLED_SIGMA_VALUES,
 )
@@ -46,6 +45,8 @@ device = get_device()
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("accelerate").setLevel(logging.ERROR)
 logging.getLogger("ltx_core").setLevel(logging.ERROR)
+
+AUDIO_SAMPLE_RATE = 24000
 
 
 def load_audio_input(audio_path: str, target_sample_rate: int, device: torch.device) -> torch.Tensor:
@@ -100,7 +101,7 @@ class MusicToVideoPipeline:
         mel_bins = 64
         
         audio_processor = AudioProcessor(
-            sample_rate=24000,
+            sample_rate=AUDIO_SAMPLE_RATE,
             mel_bins=mel_bins,
             mel_hop_length=mel_hop_length,
             n_fft=n_fft
@@ -116,7 +117,7 @@ class MusicToVideoPipeline:
         elif waveform.shape[1] > 2:
             waveform = waveform[:, :2, :]
             
-        spectrogram = audio_processor.waveform_to_mel(waveform.to(self.device).float(), 24000)
+        spectrogram = audio_processor.waveform_to_mel(waveform.to(self.device).float(), AUDIO_SAMPLE_RATE)
         audio_encoder = self.model_ledger.audio_encoder()
         encoded_latents = audio_encoder(spectrogram.to(self.dtype))
 
@@ -160,7 +161,7 @@ class MusicToVideoPipeline:
         if audio_input_path:
              print(f"Loading audio from {audio_input_path}")
 
-             audio_waveform = load_audio_input(audio_input_path, 24000, self.device)
+             audio_waveform = load_audio_input(audio_input_path, AUDIO_SAMPLE_RATE, self.device)
              print("Encoding audio latents...")
              audio_latents = self.encode_audio_latents(audio_waveform)
              pass
@@ -481,3 +482,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# validation prompt: Cinematic macro shot. Static camera recording concert. White man and beautiful greek woman singing on the scene rock musicians on blurred depth of field background. constant lighting no darkening on start and end of video.
