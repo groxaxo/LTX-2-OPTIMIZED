@@ -224,18 +224,25 @@ class MusicToVideoPipeline:
             v_x = video_state
             a_x = audio_state
             
+            if a_x is not None and getattr(a_x, 'denoise_mask', None) is not None:
+                a_x = replace(a_x, denoise_mask=torch.ones_like(a_x.denoise_mask))
+
+            audio_noise = a_x.latent.clone() if a_x is not None else None
+            
             for i in range(len(sigmas) - 1):
                 sigma_hat = sigmas[i]
                 sigma_next = sigmas[i + 1]
                 if loop_audio_latents is not None:
-                     a_x = replace(a_x, latent=loop_audio_latents)
+                     sigma_val = sigma_hat.item() if isinstance(sigma_hat, torch.Tensor) else sigma_hat
+                     noised_audio = loop_audio_latents * (1.0 - sigma_val) + audio_noise * sigma_val
+                     a_x = replace(a_x, latent=noised_audio.to(a_x.latent.dtype))
                      pass
 
                 denoised_v, denoised_a = simple_denoising_func(
                     video_context=video_context,
                     audio_context=audio_context,
                     transformer=transformer,
-                    is_conditioning=is_conditioning,
+                    is_conditioning=True,
                     disable_audio=False,
                 )(v_x, a_x, sigmas, i)
 
@@ -254,9 +261,7 @@ class MusicToVideoPipeline:
         )
 
         stage_1_conditionings = []
-        is_conditioning = False
         if images:
-            is_conditioning = True
             video_encoder = self.model_ledger.video_encoder()
             stage_1_conditionings = image_conditionings_by_replacing_latent(
                 images=images,
@@ -324,7 +329,7 @@ class MusicToVideoPipeline:
             components=self.pipeline_components,
             dtype=dtype,
             device=self.device,
-            is_conditioning=is_conditioning,
+            is_conditioning=True,
             initial_audio_latent=audio_latents if audio_latents is not None else None
         )
         
@@ -402,7 +407,7 @@ class MusicToVideoPipeline:
             noise_scale=stage_2_sigmas[0],
             initial_video_latent=upscaled_video_latent,
             initial_audio_latent=audio_latents,
-            is_conditioning=is_conditioning
+            is_conditioning=True
         )
         
         print("Stage 2: Finish upsample.", time.time() - startAt)
