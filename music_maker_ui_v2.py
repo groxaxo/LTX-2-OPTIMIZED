@@ -10,7 +10,8 @@ from collections import deque
 import cv2
 
 # --- Configuration & Defaults ---
-DEFAULT_CHECKPOINT = "./models/ltx-2-19b-distilled-fp8.safetensors"
+DEFAULT_CHECKPOINT = "./models/ltx-2-19b-dev-fp8.safetensors"
+DEFAULT_CHECKPOINT_STAGE_2 = "./models/ltx-2-19b-distilled-fp8.safetensors"
 DEFAULT_GEMMA = "./models/gemma3"
 DEFAULT_UPSAMPLER = "./models/ltx-2-spatial-upscaler-x2-1.0.safetensors"
 AUDIO_CLIPS_DIR = "./audio_clips"
@@ -135,7 +136,7 @@ def slice_audio(audio_path, prompt, fps, num_frames):
         traceback.print_exc()
         return tuple([f"Error: {str(e)}"] + [gr.update(visible=False)] * 20 * 5) # Update this count if UI structure changes
 
-def process_chain_generation(scenes_list, audios_list, start_images_list, last_images_list, checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index=None, mode="forward"):
+def process_chain_generation(scenes_list, audios_list, start_images_list, last_images_list, checkpoint, stage_2_checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index=None, mode="forward"):
     """
     mode: "forward" (chain from start_index up to end) or "single" (only start_index)
     """
@@ -222,10 +223,11 @@ def process_chain_generation(scenes_list, audios_list, start_images_list, last_i
                          conditioning_frames = [(f_prev_l1, 0, 1.0), (f_prev_l2, 1, 0.1)]
                          CURRENT_LOG += f"Connecting Scene {scene_id} to Scene {i} (last frames as latents)\n"
 
-        # Build Command for music_to_video.py
+        # Build Command for music_to_video_v2.py
         cmd = [
-            sys.executable, "-m", "ltx_pipelines.music_to_video",
+            sys.executable, "-m", "ltx_pipelines.music_to_video_v2",
             "--checkpoint-path", checkpoint,
+            "--stage-2-checkpoint-path", stage_2_checkpoint,
             "--gemma-root", gemma,
             "--spatial-upsampler-path", upsampler,
             "--prompt", actual_prompt,
@@ -280,7 +282,7 @@ def process_chain_generation(scenes_list, audios_list, start_images_list, last_i
     CURRENT_LOG += "\n--- GENERATION CYCLE FINISHED ---\n"
     IS_PROCESSING = False
 
-def start_generation_thread(prompts, audios, start_images, last_images, checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index=None, mode="forward"):
+def start_generation_thread(prompts, audios, start_images, last_images, checkpoint, stage_2_checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index=None, mode="forward"):
     # Clear subsequent scenes in data if starting a chain or single regeneration logic?
     # For music video, if we regenerate, we keep the audio_path!
     # So we should only clear video_path.
@@ -293,7 +295,7 @@ def start_generation_thread(prompts, audios, start_images, last_images, checkpoi
                 SCENES_DATA[i]['first_frame'] = None
                 SCENES_DATA[i]['last_frame'] = None
 
-    threading.Thread(target=process_chain_generation, args=(prompts, audios, start_images, last_images, checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index, mode), daemon=True).start()
+    threading.Thread(target=process_chain_generation, args=(prompts, audios, start_images, last_images, checkpoint, stage_2_checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth, start_index, mode), daemon=True).start()
     return "Generation started..."
 
 def stop_generation():
@@ -357,11 +359,12 @@ with gr.Blocks(title="LTX-2 Music Video Maker", theme=theme) as demo:
             master_prompt = gr.Textbox(label="Visual Style / Prompt", placeholder="Cyberpunk city, neon lights, rain...", lines=2)
             
             with gr.Accordion("LTX-2 Settings", open=True):
-                checkpoint = gr.Textbox(label="Checkpoint", value=DEFAULT_CHECKPOINT)
+                checkpoint = gr.Textbox(label="Stage 1 Checkpoint", value=DEFAULT_CHECKPOINT)
+                stage_2_checkpoint = gr.Textbox(label="Stage 2 Checkpoint", value=DEFAULT_CHECKPOINT_STAGE_2)
                 gemma = gr.Textbox(label="Gemma Root", value=DEFAULT_GEMMA)
                 upsampler = gr.Textbox(label="Upsampler", value=DEFAULT_UPSAMPLER)
                 with gr.Row():
-                    steps = gr.Slider(label="Steps", minimum=1, maximum=50, value=8)
+                    steps = gr.Slider(label="Steps", minimum=1, maximum=50, value=40)
                     fps = gr.Number(label="FPS", value=24)
                 with gr.Row():
                     width = gr.Number(label="Width", value=1280)
@@ -447,7 +450,7 @@ with gr.Blocks(title="LTX-2 Music Video Maker", theme=theme) as demo:
         rest = args[80:]
         return start_generation_thread(prompts, audios, start_images, last_images, *rest)
 
-    all_inputs = scene_prompts + scene_audios + scene_start_images + scene_last_images + [checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth]
+    all_inputs = scene_prompts + scene_audios + scene_start_images + scene_last_images + [checkpoint, stage_2_checkpoint, gemma, upsampler, steps, fps, width, height, num_frames, seed, random_seed, use_context_compression, latent_reuse_count, context_depth]
     
     generate_btn.click(
         fn=collect_prompts_and_start,
