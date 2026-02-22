@@ -20,6 +20,13 @@ It includes a fully-featured **Gradio Web Interface** to make generating videos,
 
 * https://youtu.be/HzK1nW-OVtQ
 
+* Added start/last frame (optional)
+
+```python
+python music_maker_ui.py # distilled 2 step (fast)
+python music_maker_ui_v2.py # 2 step (slow)
+```
+
 
 
 ## 🚀 Features
