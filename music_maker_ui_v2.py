@@ -203,7 +203,6 @@ def process_chain_generation(scenes_list, audios_list, start_images_list, last_i
             conditioning_frames = [(custom_start, 0, 1.0)]
             CURRENT_LOG += f"Using custom Start Image for Scene {scene_id}\n"
         elif mode == "forward":
-            # Connect to previous scene's LAST frames (112, 120) as starting points (0, 1)
             if i > 0:
                 custom_last = get_valid_path(last_images_list[i-1])
                 if custom_last:
@@ -218,9 +217,8 @@ def process_chain_generation(scenes_list, audios_list, start_images_list, last_i
                     last_lat = (prev_frame_cnt - 1) // 8
                     
                     f_prev_l1 = f"scene_{scene_id}_f_prev_last1.jpg"
-                    f_prev_l2 = f"scene_{scene_id}_f_prev_last2.jpg"
-                    if extract_frame(prev_video, f_prev_l1, (last_lat-1)*8) and extract_frame(prev_video, f_prev_l2, last_lat*8):
-                         conditioning_frames = [(f_prev_l1, 0, 1.0), (f_prev_l2, 1, 0.1)]
+                    if extract_frame(prev_video, f_prev_l1, last_lat*8):
+                         conditioning_frames = [(f_prev_l1, 0, 1.0)]
                          CURRENT_LOG += f"Connecting Scene {scene_id} to Scene {i} (last frames as latents)\n"
 
         # Build Command for music_to_video_v2.py
