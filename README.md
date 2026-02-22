@@ -106,6 +106,8 @@ python web_ui_v4.py
 * UPD: optimized transformer code, increased max frames by 40% for text to video, generation speed 300..315 -> 385..415 sec, (1280x704 11sec 24fps, 1920x1088 5sec 24fps)
 * UPD2: added web ui v4, stage 1 video preview, task queue, prompt constructor, disable audio option (faster inference 10-30%)
 
+* UPD3: on branch "update" synced with original repo (21 Feb 2026) version but it require old transforners lib 4.52 and 20sec+ to prompt processing so not yet merged to main (will not be merged untill update) if you want you can try it just switch branch
+
 
 **Credits**
 * Original Model: Lightricks (LTX-2)
