@@ -1,129 +1,132 @@
-# LTX-2 Optimized (8GB of VRAM Edition) + Web UI
+# LTX-2 Optimized (8GB VRAM Edition) + Web UI
 
-This repository contains a **modified and optimized version of the LTX-2 Video Generation Model**, designed specifically to run on consumer hardware with as little as **8GB of VRAM**. 
+This repository contains a **modified and optimized version of the LTX-2 Video Generation Model**, designed specifically to run on consumer hardware with as little as **8GB of VRAM**.
 
 It includes a fully-featured **Gradio Web Interface** to make generating videos, managing presets, and applying LoRAs easy without needing to remember complex command-line arguments.
-## Web UI v2
+
+> **Compatibility:** This fork is synchronized with the upstream [Lightricks/LTX-2](https://github.com/Lightricks/LTX-2) repository (as of 2026-03-05) and is compatible with the latest LTX-2.3 model releases.
+
+## Web UI Screenshots
+
+### Web UI v2
 <img width="2260" height="1078" alt="image" src="https://github.com/user-attachments/assets/5a9f5dce-f313-44a3-bbbe-10eccc002191" />
 
-## Web UI v4
+### Web UI v4
 <img width="949" height="575" alt="scr221" src="https://github.com/user-attachments/assets/2e3a6c51-51b8-4487-b64d-a7d2c41d794a" />
 
-## CinemaMaker UI
+### CinemaMaker UI
 <img width="612" height="343" alt="cm" src="https://github.com/user-attachments/assets/0f5f2dca-bacd-4f5f-a627-505ad3751277" />
 
 * https://youtu.be/eGOq0hUiri4
 * https://youtu.be/HAQqzPdDIj0
 
-## Music to Video UI (S2V, Lip Sync)
+### Music to Video UI (S2V, Lip Sync)
 <img width="612" height="343" alt="cm" src="https://github.com/user-attachments/assets/852845f9-f113-41f7-a5e6-8a4e1dec0778" />
 
 * https://youtu.be/HzK1nW-OVtQ
 
-* Added start/last frame (optional)
+## 🚀 Fork Features & Optimizations
 
-```python
-python music_maker_ui.py # distilled 2 step (fast)
-python music_maker_ui_v2.py # 2 step (slow)
-```
+* **8GB VRAM Optimization:** Runs locally on cards like the RTX 3070/4060Ti using FP8 quantization and memory management tweaks.
+* **Windows 11 support:** You can run it on Windows (not officially supported in the original model).
+* **User-Friendly Web UI:** Control everything from your browser using `web_ui_v2.py` or `web_ui_v4.py`.
+* **Smart "Safe Mode":** The UI automatically limits the frame count based on selected resolution to prevent Out-Of-Memory (OOM) errors.
+* **Real-time Logging:** View the generation progress and console output directly in the web interface.
+* **Optimized Transformer Code:** Increased max frames by ~40% for text-to-video; generation speed improved from 300–315 sec to 385–415 sec (RTX 3070 Ti laptop).
+* **Stage 1 Video Preview, Task Queue, Prompt Constructor:** Available in Web UI v4.
+* **Disable Audio option:** Speeds up inference by 10–30%.
+* **Film Maker UI:** Full-featured film-making interface (`film_maker_ui_v4.py`).
+* **Music to Video UI:** Audio-driven video generation with optional start/last frame conditioning (`music_maker_ui.py`, `music_maker_ui_v2.py`).
+* **Advanced Features:** Image Conditioning, LoRA Support (checkbox selection for Camera Control), Seed Control for reproducible generations.
 
+## 📥 Installation (Fork with Web UI)
 
+**GPU Requirements:** NVIDIA GPU with at least 8GB VRAM (e.g., RTX 3070, 4060 Ti). For Windows, use WSL2 or native Python 3.12.
 
-## 🚀 Features
-
-*   **8GB VRAM Optimization:** Runs locally on cards like the RTX 3070/4060Ti using FP8 quantization and memory management tweaks.
-*   **Windows 11 support!!!** You can even run it on Windows (not supported in the original model).
-*   **User-Friendly Web UI:** Control everything from your browser.
-*   **Smart "Safe Mode":** The UI automatically limits the frame count based on selected resolution to prevent Out-Of-Memory (OOM) errors. (If you do not have 8GB of free VRAM, try decreasing the frame count.)
-*   **Real-time Logging:** View the generation progress and console output directly in the web interface.
-*   **Advanced Features:**
-    *   **Image Conditioning:** Upload reference images.
-    *   **LoRA Support:** Checkbox selection for Camera Control.
-    *   **Seed Control:** Reproducible generations.
-
-## 📥 Model Download & Setup
-
-To run this, you need to download the specific FP8 distilled checkpoints and the Text Encoder.
-
-**1. Create a `models` directory in the root folder:**
+**1. Clone this repository:**
 ```bash
-mkdir models
-mkdir models/loras
+git clone https://github.com/groxaxo/LTX-2-OPTIMIZED.git
+cd LTX-2-OPTIMIZED
 ```
 
-**2. Download the models:**
-* [`ltx-2-19b-distilled-fp8.safetensors`](https://huggingface.co/Lightricks/LTX-2/blob/main/ltx-2-19b-distilled-fp8.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-distilled-fp8.safetensors)
-* [`ltx-2-spatial-upscaler-x2-1.0.safetensors`](https://huggingface.co/Lightricks/LTX-2/blob/main/ltx-2-spatial-upscaler-x2-1.0.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-spatial-upscaler-x2-1.0.safetensors)
-* [`Gemma 3`](https://huggingface.co/google/gemma-3-12b-it-qat-q4_0-unquantized/tree/main)
-```
-./models/
-    ltx-2-19b-distilled-fp8.safetensors	
-    ltx-2-spatial-upscaler-x2-1.0.safetensors
-
-./models/gemma3/
-    gemma-3 files
-
-./models/loras/
-    LoRA files here
-```
-**3. Install all required modules:**
-```
-required modules
+**2. Install dependencies:**
+```bash
 pip install -e packages/ltx-pipelines
 pip install -e packages/ltx-core
+```
 
+Verified working environment:
+```
 Python 3.12.8
 accelerate==1.10.1
 torch==2.8.0+cu128
 torchaudio==2.8.0+cu128
 torchvision==0.23.0+cu128
 xformers==0.0.32.post2
-...
 ```
-**🖥️ Usage**
-Run the web interface with a single command:
-```Bash
+
+**3. Create model directories and download models:**
+```bash
+mkdir -p models/loras
+```
+
+Download required files:
+* [`ltx-2-19b-distilled-fp8.safetensors`](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-distilled-fp8.safetensors)
+* [`ltx-2-spatial-upscaler-x2-1.0.safetensors`](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-spatial-upscaler-x2-1.0.safetensors)
+* [`Gemma 3`](https://huggingface.co/google/gemma-3-12b-it-qat-q4_0-unquantized/tree/main) → place in `./models/gemma3/`
+
+Expected directory layout:
+```
+./models/
+    ltx-2-19b-distilled-fp8.safetensors
+    ltx-2-spatial-upscaler-x2-1.0.safetensors
+./models/gemma3/
+    (Gemma 3 model files)
+./models/loras/
+    (LoRA files, optional)
+```
+
+**4. Launch Web UI:**
+```bash
 python web_ui_v2.py
-
-or
-
+# or
 python web_ui_v4.py
 ```
 
-**📊 Performance & Presets (8GB of VRAM)**
-* The Web UI includes an "8GB VRAM Safe Mode" checkbox. When enabled, it enforces the following limits to ensure you don't crash your GPU. Est. inference time on RTX 3070 Ti laptop GPU ~300sec for all presets.
+**5. Launch other UIs:**
+```bash
+python film_maker_ui_v4.py       # CinemaMaker UI
+python music_maker_ui.py         # Music to Video (distilled 2-step, fast)
+python music_maker_ui_v2.py      # Music to Video (2-step, higher quality)
 ```
-| Resolution  | Max Frames i2v| t2v  | Est. Time (3070ti laptop 8gb vram) |
-| :---------- | :------------ |:---- |:---------------------------------- |
-| 1280 x 704  | 177           | 257  | ~300..400 sec                      |
-| 1536 x 1024 | 121           | 185  | ~300..400 sec                      |
-| 1920 x 1088 | 81            | 121  | ~300..400 sec                      |
-| 2560 x 1408 | 49            | 65   | ~300..400 sec                      |
-| 3840 x 2176 | 17            | 25   | ~300..400 sec                      |
+
+## 📊 Performance on 8GB VRAM (RTX 3070 Ti Laptop)
+
+| Resolution   | Max Frames (i2v) | Max Frames (t2v) | Est. Time      |
+|:-------------|:-----------------|:-----------------|:---------------|
+| 1280 × 704   | 177              | 257              | ~300–400 sec   |
+| 1536 × 1024  | 121              | 185              | ~300–400 sec   |
+| 1920 × 1088  | 81               | 121              | ~300–400 sec   |
+| 2560 × 1408  | 49               | 65               | ~300–400 sec   |
+| 3840 × 2176  | 17               | 25               | ~300–400 sec   |
+
 * +60 sec for prompt (if not empty/not cached)
-* time to stage 1 preview 80..150 sec
-```
-* UPD: optimized transformer code, increased max frames by 40% for text to video, generation speed 300..315 -> 385..415 sec, (1280x704 11sec 24fps, 1920x1088 5sec 24fps)
-* UPD2: added web ui v4, stage 1 video preview, task queue, prompt constructor, disable audio option (faster inference 10-30%)
+* Stage 1 preview: 80–150 sec
 
-* UPD3: on branch "update" synced with original repo (21 Feb 2026) version but it require old transforners lib 4.52 and 20sec+ to prompt processing so not yet merged to main (will not be merged untill update) if you want you can try it just switch branch
+## Credits
 
+* Original Model: Lightricks (LTX-2 / LTX-2.3)
+* Fork Optimizations & Web UI: nalexand, groxaxo
+* Community contributions welcome!
 
-**Credits**
-* Original Model: Lightricks (LTX-2)
-* Optimization: nalexand
-* Web UI: Created for the community to make this powerful model accessible.
+---
 
-Original Model: 
-* (you can find links to all model files and loras below)
-
-
-## LTX-2
+# LTX-2
 
 [![Website](https://img.shields.io/badge/Website-LTX-181717?logo=google-chrome)](https://ltx.io)
-[![Model](https://img.shields.io/badge/HuggingFace-Model-orange?logo=huggingface)](https://huggingface.co/Lightricks/LTX-2)
+[![Model](https://img.shields.io/badge/HuggingFace-Model-orange?logo=huggingface)](https://huggingface.co/Lightricks/LTX-2.3)
 [![Demo](https://img.shields.io/badge/Demo-Try%20Now-brightgreen?logo=vercel)](https://app.ltx.studio/ltx-2-playground/i2v)
-[![Paper](https://img.shields.io/badge/Paper-PDF-EC1C24?logo=adobeacrobatreader&logoColor=white)](https://videos.ltx.io/LTX-2/grants/LTX_2_Technical_Report_compressed.pdf)
+[![Paper](https://img.shields.io/badge/Paper-PDF-EC1C24?logo=adobeacrobatreader&logoColor=white)](https://arxiv.org/abs/2601.03233)
 [![Discord](https://img.shields.io/badge/Join-Discord-5865F2?logo=discord)](https://discord.gg/ltxplatform)
 
 **LTX-2** is the first DiT-based audio-video foundation model that contains all core capabilities of modern video generation in one model: synchronized audio and video, high fidelity, multiple performance modes, production-ready outputs, API access, and open access.
@@ -146,30 +149,29 @@ source .venv/bin/activate
 
 ### Required Models
 
-Download the following models from the [LTX-2 HuggingFace repository](https://huggingface.co/Lightricks/LTX-2):
+Download the following models from the [LTX-2.3 HuggingFace repository](https://huggingface.co/Lightricks/LTX-2.3):
 
-**LTX-2 Model Checkpoint** (choose and download one of the following)
-  * [`ltx-2-19b-dev-fp8.safetensors`](https://huggingface.co/Lightricks/LTX-2/blob/main/ltx-2-19b-dev-fp8.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors)
-
-  * [`ltx-2-19b-dev.safetensors`](https://huggingface.co/Lightricks/LTX-2/blob/main/ltx-2-19b-dev.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev.safetensors)
-  * [`ltx-2-19b-distilled.safetensors`](https://huggingface.co/Lightricks/LTX-2/blob/main/ltx-2-19b-distilled.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-distilled.safetensors)
-  * [`ltx-2-19b-distilled-fp8.safetensors`](https://huggingface.co/Lightricks/LTX-2/blob/main/ltx-2-19b-distilled-fp8.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-distilled-fp8.safetensors)
+**LTX-2.3 Model Checkpoint** (choose and download one of the following)
+  * [`ltx-2.3-22b-dev.safetensors`](https://huggingface.co/Lightricks/LTX-2.3/blob/main/ltx-2.3-22b-dev.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-dev.safetensors)
+  * [`ltx-2.3-22b-distilled.safetensors`](https://huggingface.co/Lightricks/LTX-2.3/blob/main/ltx-2.3-22b-distilled.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled.safetensors)
 
 **Spatial Upscaler** - Required for current two-stage pipeline implementations in this repository
-  * [`ltx-2-spatial-upscaler-x2-1.0.safetensors`](https://huggingface.co/Lightricks/LTX-2/blob/main/ltx-2-spatial-upscaler-x2-1.0.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-spatial-upscaler-x2-1.0.safetensors)
+  * [`ltx-2.3-spatial-upscaler-x2-1.0.safetensors`](https://huggingface.co/Lightricks/LTX-2.3/blob/main/ltx-2.3-spatial-upscaler-x2-1.0.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.0.safetensors)
+  * [`ltx-2.3-spatial-upscaler-x1.5-1.0.safetensors`](https://huggingface.co/Lightricks/LTX-2.3/blob/main/ltx-2.3-spatial-upscaler-x1.5-1.0.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x1.5-1.0.safetensors)
 
 **Temporal Upscaler** - Supported by the model and will be required for future pipeline implementations
-  * [`ltx-2-temporal-upscaler-x2-1.0.safetensors`](https://huggingface.co/Lightricks/LTX-2/blob/main/ltx-2-temporal-upscaler-x2-1.0.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-temporal-upscaler-x2-1.0.safetensors)
+  * [`ltx-2.3-temporal-upscaler-x2-1.0.safetensors`](https://huggingface.co/Lightricks/LTX-2.3/blob/main/ltx-2.3-temporal-upscaler-x2-1.0.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-temporal-upscaler-x2-1.0.safetensors)
 
 **Distilled LoRA** - Required for current two-stage pipeline implementations in this repository (except DistilledPipeline and ICLoraPipeline)
-  * [`ltx-2-19b-distilled-lora-384.safetensors`](https://huggingface.co/Lightricks/LTX-2/blob/main/ltx-2-19b-distilled-lora-384.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-distilled-lora-384.safetensors)
+  * [`ltx-2.3-22b-distilled-lora-384.safetensors`](https://huggingface.co/Lightricks/LTX-2.3/blob/main/ltx-2.3-22b-distilled-lora-384.safetensors) - [Download](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384.safetensors)
 
 **Gemma Text Encoder** (download all assets from the repository)
   * [`Gemma 3`](https://huggingface.co/google/gemma-3-12b-it-qat-q4_0-unquantized/tree/main)
 
 **LoRAs**
-  * [`LTX-2-19b-IC-LoRA-Canny-Control`](https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Canny-Control) - [Download](https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Canny-Control/resolve/main/ltx-2-19b-ic-lora-canny-control.safetensors)
-  * [`LTX-2-19b-IC-LoRA-Depth-Control`](https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Depth-Control) - [Download](https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Depth-Control/resolve/main/ltx-2-19b-ic-lora-depth-control.safetensors)
+  * [`LTX-2.3-22b-IC-LoRA-Union-Control`](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control) - [Download](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control/resolve/main/ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors)
+  * [`LTX-2.3-22b-IC-LoRA-Inpainting`](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Inpainting) - [Download](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Inpainting/resolve/main/ltx-2.3-22b-ic-lora-inpainting.safetensors)
+  * [`LTX-2.3-22b-IC-LoRA-Motion-Track-Control`](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control) - [Download](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control/resolve/main/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors)
   * [`LTX-2-19b-IC-LoRA-Detailer`](https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Detailer) - [Download](https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Detailer/resolve/main/ltx-2-19b-ic-lora-detailer.safetensors)
   * [`LTX-2-19b-IC-LoRA-Pose-Control`](https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Pose-Control) - [Download](https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Pose-Control/resolve/main/ltx-2-19b-ic-lora-pose-control.safetensors)
   * [`LTX-2-19b-LoRA-Camera-Control-Dolly-In`](https://huggingface.co/Lightricks/LTX-2-19b-LoRA-Camera-Control-Dolly-In) - [Download](https://huggingface.co/Lightricks/LTX-2-19b-LoRA-Camera-Control-Dolly-In/resolve/main/ltx-2-19b-lora-camera-control-dolly-in.safetensors)
@@ -183,15 +185,18 @@ Download the following models from the [LTX-2 HuggingFace repository](https://hu
 ### Available Pipelines
 
 * **[TI2VidTwoStagesPipeline](packages/ltx-pipelines/src/ltx_pipelines/ti2vid_two_stages.py)** - Production-quality text/image-to-video with 2x upsampling (recommended)
+* **[TI2VidTwoStagesHQPipeline](packages/ltx-pipelines/src/ltx_pipelines/ti2vid_two_stages_hq.py)** - Same two-stage flow as above but uses the res_2s second-order sampler (fewer steps, better quality)
 * **[TI2VidOneStagePipeline](packages/ltx-pipelines/src/ltx_pipelines/ti2vid_one_stage.py)** - Single-stage generation for quick prototyping
 * **[DistilledPipeline](packages/ltx-pipelines/src/ltx_pipelines/distilled.py)** - Fastest inference with 8 predefined sigmas
-* **[ICLoraPipeline](packages/ltx-pipelines/src/ltx_pipelines/ic_lora.py)** - Video-to-video and image-to-video transformations
+* **[ICLoraPipeline](packages/ltx-pipelines/src/ltx_pipelines/ic_lora.py)** - Video-to-video and image-to-video transformations (uses distilled model.)
 * **[KeyframeInterpolationPipeline](packages/ltx-pipelines/src/ltx_pipelines/keyframe_interpolation.py)** - Interpolate between keyframe images
+* **[A2VidPipelineTwoStage](packages/ltx-pipelines/src/ltx_pipelines/a2vid_two_stage.py)** - Audio-to-video generation conditioned on an input audio file
+* **[RetakePipeline](packages/ltx-pipelines/src/ltx_pipelines/retake.py)** - Regenerate a specific time region of an existing video
 
 ### ⚡ Optimization Tips
 
 * **Use DistilledPipeline** - Fastest inference with only 8 predefined sigmas (8 steps stage 1, 4 steps stage 2)
-* **Enable FP8 transformer** - Enables lower memory footprint: `--enable-fp8` (CLI) or `fp8transformer=True` (Python)
+* **Enable FP8 quantization** - Enables lower memory footprint: `--quantization fp8-cast` (CLI) or `quantization=QuantizationPolicy.fp8_cast()` (Python). For Hopper GPUs with TensorRT-LLM, use `--quantization fp8-scaled-mm` for FP8 scaled matrix multiplication.
 * **Install attention optimizations** - Use xFormers (`uv sync --extra xformers`) or [Flash Attention 3](https://github.com/Dao-AILab/flash-attention) for Hopper GPUs
 * **Use gradient estimation** - Reduce inference steps from 40 to 20-30 while maintaining quality (see [pipeline documentation](packages/ltx-pipelines/README.md#denoising-loop-optimization))
 * **Skip memory cleanup** - If you have sufficient VRAM, disable automatic memory cleanup between stages for faster processing
