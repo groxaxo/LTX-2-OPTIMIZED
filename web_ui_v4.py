@@ -9,24 +9,28 @@ import sys
 from collections import deque
 
 # --- Configuration & Defaults ---
-DEFAULT_CHECKPOINT = "./models/ltx-2-19b-distilled-fp8.safetensors"
+DEFAULT_CHECKPOINT = "./models/ltx-2.3-22b-dev.safetensors"
 DEFAULT_GEMMA = "./models/gemma3"
-DEFAULT_UPSAMPLER = "./models/ltx-2-spatial-upscaler-x2-1.0.safetensors"
+DEFAULT_UPSAMPLER = "./models/ltx-2.3-spatial-upscaler-x2-1.0.safetensors"
+DEFAULT_DISTILLED_LORA = "./models/loras/ltx-2.3-22b-distilled-lora-384.safetensors"
 LORA_ROOT = "./models/loras"
 
 # LoRA List
 LORA_OPTIONS = [
+    "LTX-2.3-22b-IC-LoRA-Union-Control-ref0.5",
+    "LTX-2.3-22b-IC-LoRA-Inpainting",
+    "LTX-2.3-22b-IC-LoRA-Motion-Track-Control-ref0.5",
     "LTX-2-19b-LoRA-Camera-Control-Dolly-In",
     "LTX-2-19b-LoRA-Camera-Control-Dolly-Left",
     "LTX-2-19b-LoRA-Camera-Control-Dolly-Out",
     "LTX-2-19b-LoRA-Camera-Control-Dolly-Right",
     "LTX-2-19b-LoRA-Camera-Control-Jib-Down",
     "LTX-2-19b-LoRA-Camera-Control-Jib-Up",
-    "LTX-2-19b-LoRA-Camera-Control-Static"
+    "LTX-2-19b-LoRA-Camera-Control-Static",
 ]
 
-# Resolution Presets with Max Frame Data for 8GB VRAM
-PRESETS = {
+# Resolution Presets with Max Frame Data for 8GB VRAM (single GPU)
+PRESETS_8GB = {
     "1280x704 (Landscape)": {"w": 1280, "h": 704, "max_frames": 225},
     "704x1280 (Vertical)": {"w": 704, "h": 1280, "max_frames": 225},
     "1536x1024 (Standard)": {"w": 1536, "h": 1024, "max_frames": 121},
@@ -39,6 +43,24 @@ PRESETS = {
     "1408x2560 (2K Vert)": {"w": 1408, "h": 2560, "max_frames": 49},
     "3840x2176 (4K)": {"w": 3840, "h": 2176, "max_frames": 17},
 }
+
+# Resolution Presets for 3× RTX 3090 (72 GB VRAM) with multi-GPU
+PRESETS_3X3090 = {
+    "1280x704 (Landscape)": {"w": 1280, "h": 704, "max_frames": 257},
+    "704x1280 (Vertical)": {"w": 704, "h": 1280, "max_frames": 257},
+    "1536x1024 (Standard)": {"w": 1536, "h": 1024, "max_frames": 185},
+    "1024x1536 (Vertical)": {"w": 1024, "h": 1536, "max_frames": 185},
+    "1600x896 (Landscape)": {"w": 1600, "h": 896, "max_frames": 201},
+    "896x1600 (Vertical)": {"w": 896, "h": 1600, "max_frames": 201},
+    "1920x1088 (HD)": {"w": 1920, "h": 1088, "max_frames": 121},
+    "1088x1920 (HD Vert)": {"w": 1088, "h": 1920, "max_frames": 121},
+    "2560x1408 (2K)": {"w": 2560, "h": 1408, "max_frames": 65},
+    "1408x2560 (2K Vert)": {"w": 1408, "h": 2560, "max_frames": 65},
+    "3840x2176 (4K)": {"w": 3840, "h": 2176, "max_frames": 25},
+}
+
+# Active presets (selected at runtime based on GPU mode)
+PRESETS = PRESETS_8GB
 
 # Cinematic
 
@@ -174,7 +196,7 @@ def process_job_logic(job):
     cmd = [
         sys.executable, "-m", "ltx_pipelines.distilled",
         #"kernprof", "-l", "-v", "-m", "ltx_pipelines.distilled",
-        "--checkpoint-path", job['checkpoint_path'],
+        "--distilled-checkpoint-path", job['checkpoint_path'],
         "--gemma-root", job['gemma_path'],
         "--spatial-upsampler-path", job['upsampler_path'],
         "--prompt", prompt,
@@ -188,9 +210,10 @@ def process_job_logic(job):
         # "--enable-chunked-stage2"
     ]
 
-    if job['enable_fp8']: cmd.append("--enable-fp8")
+    if job['enable_fp8']: cmd.extend(["--quantization", "fp8-cast"])
     if job['enhance_prompt']: cmd.append("--enhance-prompt")
     if job['disable_audio']: cmd.append("--disable-audio")
+    if job.get('multi_gpu'): cmd.append("--multi-gpu")
 
     # Images
     for path, idx, strength in job['images']:
@@ -270,7 +293,8 @@ threading.Thread(target=worker_thread, daemon=True).start()
 
 def enqueue_job(
         prompt, preset, num_frames, disable_audio, frame_rate, steps, seed, randomize_seed, enhance_prompt, enable_fp8,
-        checkpoint_path, gemma_path, upsampler_path,
+        multi_gpu,
+        checkpoint_path, gemma_path, upsampler_path, distilled_lora_path,
         img1_path, img1_idx, img1_str,
         img2_path, img2_idx, img2_str,
         img3_path, img3_idx, img3_str,
@@ -290,9 +314,11 @@ def enqueue_job(
         "randomize_seed": randomize_seed,
         "enhance_prompt": enhance_prompt,
         "enable_fp8": enable_fp8,
+        "multi_gpu": multi_gpu,
         "checkpoint_path": checkpoint_path,
         "gemma_path": gemma_path,
         "upsampler_path": upsampler_path,
+        "distilled_lora_path": distilled_lora_path,
         "images": [
             (img1_path, img1_idx, img1_str),
             (img2_path, img2_idx, img2_str),
@@ -348,8 +374,8 @@ textarea { font-family: monospace; }
 #status_box { font-weight: bold; color: #475569; }
 """
 
-with gr.Blocks(title="LTX-2 Studio + Queue", theme=theme, css=css) as demo:
-    gr.Markdown("## 🎬 LTX-2 Distilled Web Interface (Queue Enabled)")
+with gr.Blocks(title="LTX-2.3 Studio + Queue", theme=theme, css=css) as demo:
+    gr.Markdown("## 🎬 LTX-2.3 Distilled Web Interface (Queue Enabled)")
 
     with gr.Row():
         # Left Column: Controls
@@ -390,10 +416,16 @@ with gr.Blocks(title="LTX-2 Studio + Queue", theme=theme, css=css) as demo:
                     random_seed = gr.Checkbox(label="Random Seed", value=True)
                     enable_fp8 = gr.Checkbox(label="FP8", value=True)
                     enhance_prompt = gr.Checkbox(label="Enhance", value=False)
+                    multi_gpu = gr.Checkbox(
+                        label="Multi-GPU (3× 3090)",
+                        value=False,
+                        info="Distribute models across GPUs"
+                    )
 
                 checkpoint_path = gr.Textbox(label="Checkpoint", value=DEFAULT_CHECKPOINT)
                 gemma_path = gr.Textbox(label="Gemma Root", value=DEFAULT_GEMMA)
                 upsampler_path = gr.Textbox(label="Upsampler", value=DEFAULT_UPSAMPLER)
+                distilled_lora_path = gr.Textbox(label="Distilled LoRA", value=DEFAULT_DISTILLED_LORA)
 
         # Right Column: Output & Monitor
         with gr.Column(scale=4):
@@ -461,7 +493,8 @@ with gr.Blocks(title="LTX-2 Studio + Queue", theme=theme, css=css) as demo:
         fn=enqueue_job,
         inputs=[
             prompt, preset, num_frames, disable_audio, fps, steps, seed, random_seed, enhance_prompt, enable_fp8,
-            checkpoint_path, gemma_path, upsampler_path,
+            multi_gpu,
+            checkpoint_path, gemma_path, upsampler_path, distilled_lora_path,
             i1_img, i1_idx, i1_str,
             i2_img, i2_idx, i2_str,
             i3_img, i3_idx, i3_str,

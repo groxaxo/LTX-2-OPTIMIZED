@@ -10,9 +10,9 @@ from collections import deque
 import cv2  # For frame extraction
 
 # --- Configuration & Defaults ---
-DEFAULT_CHECKPOINT = "./models/ltx-2-19b-distilled-fp8.safetensors"
+DEFAULT_CHECKPOINT = "./models/ltx-2.3-22b-dev.safetensors"
 DEFAULT_GEMMA = "./models/gemma3"
-DEFAULT_UPSAMPLER = "./models/ltx-2-spatial-upscaler-x2-1.0.safetensors"
+DEFAULT_UPSAMPLER = "./models/ltx-2.3-spatial-upscaler-x2-1.0.safetensors"
 
 # --- Master Prompt ---
 SYSTEM_INSTRUCTION = """
@@ -332,7 +332,7 @@ def process_chain_generation(scenes_list, checkpoint, gemma, upsampler, steps, f
         cmd = [
             sys.executable, "-m", "ltx_pipelines.distilled",
             # "kernprof", "-l", "-v", "-m", "ltx_pipelines.distilled",
-            "--checkpoint-path", checkpoint,
+            "--distilled-checkpoint-path", checkpoint,
             "--gemma-root", gemma,
             "--spatial-upsampler-path", upsampler,
             "--prompt", actual_prompt,
@@ -343,7 +343,7 @@ def process_chain_generation(scenes_list, checkpoint, gemma, upsampler, steps, f
             "--frame-rate", str(fps),
             "--num-inference-steps", str(int(steps)),
             "--seed", str(int(current_seed)),
-            "--enable-fp8"
+            "--quantization", "fp8-cast"
         ]
             
         for frame_path, latent_idx, guidance in conditioning_frames:

@@ -31,6 +31,7 @@ from ltx_pipelines.utils.helpers import (
     denoise_audio_video,
     encode_prompts,
     get_device,
+    get_device_map,
     simple_denoising_func,
 )
 from ltx_pipelines.utils.media_io import encode_video
@@ -44,6 +45,10 @@ class DistilledPipeline:
     Two-stage distilled video generation pipeline.
     Stage 1 generates video at half of the target resolution, then Stage 2 upsamples
     by 2x and refines with additional denoising steps for higher quality output.
+
+    When *multi_gpu* is ``True`` the pipeline distributes models across available
+    GPUs (optimised for 3x RTX 3090) so that all models can stay resident in VRAM
+    simultaneously, eliminating CPU offloading between pipeline stages.
     """
 
     def __init__(
@@ -54,23 +59,27 @@ class DistilledPipeline:
         loras: list[LoraPathStrengthAndSDOps],
         device: torch.device = device,
         quantization: QuantizationPolicy | None = None,
+        multi_gpu: bool = False,
     ):
-        self.device = device
+        self.multi_gpu = multi_gpu
+        self.device_map = get_device_map(multi_gpu=multi_gpu)
+        self.device = self.device_map.get("default", device)
         self.dtype = torch.bfloat16
 
         self.model_ledger = ModelLedger(
             dtype=self.dtype,
-            device=device,
+            device=self.device,
             checkpoint_path=distilled_checkpoint_path,
             spatial_upsampler_path=spatial_upsampler_path,
             gemma_root_path=gemma_root,
             loras=loras,
             quantization=quantization,
+            device_map=self.device_map if multi_gpu else None,
         )
 
         self.pipeline_components = PipelineComponents(
             dtype=self.dtype,
-            device=device,
+            device=self.device,
         )
 
     def __call__(
@@ -116,7 +125,7 @@ class DistilledPipeline:
                 denoise_fn=simple_denoising_func(
                     video_context=video_context,
                     audio_context=audio_context,
-                    transformer=transformer,  # noqa: F821
+                    transformer=transformer,
                 ),
             )
 
@@ -153,8 +162,11 @@ class DistilledPipeline:
             latent=video_state.latent[:1], video_encoder=video_encoder, upsampler=self.model_ledger.spatial_upsampler()
         )
 
-        torch.cuda.synchronize()
-        cleanup_memory()
+        # When using multi-GPU the models live on separate devices with plenty of
+        # VRAM; skip the synchronise-and-free cycle to avoid unnecessary overhead.
+        if not self.multi_gpu:
+            torch.cuda.synchronize()
+            cleanup_memory()
 
         stage_2_sigmas = torch.Tensor(STAGE_2_DISTILLED_SIGMA_VALUES).to(self.device)
         stage_2_output_shape = VideoPixelShape(batch=1, frames=num_frames, width=width, height=height, fps=frame_rate)
@@ -181,16 +193,19 @@ class DistilledPipeline:
             initial_audio_latent=audio_state.latent,
         )
 
-        torch.cuda.synchronize()
-        del transformer
-        del video_encoder
-        cleanup_memory()
+        if not self.multi_gpu:
+            torch.cuda.synchronize()
+            del transformer
+            del video_encoder
+            cleanup_memory()
 
+        vae_device = self.device_map.get("vae", self.device)
+        audio_device = self.device_map.get("audio", self.device)
         decoded_video = vae_decode_video(
-            video_state.latent, self.model_ledger.video_decoder(), tiling_config, generator
+            video_state.latent.to(vae_device), self.model_ledger.video_decoder(), tiling_config, generator
         )
         decoded_audio = vae_decode_audio(
-            audio_state.latent, self.model_ledger.audio_decoder(), self.model_ledger.vocoder()
+            audio_state.latent.to(audio_device), self.model_ledger.audio_decoder(), self.model_ledger.vocoder()
         )
         return decoded_video, decoded_audio
 
@@ -208,6 +223,7 @@ def main() -> None:
         gemma_root=args.gemma_root,
         loras=tuple(args.lora) if args.lora else (),
         quantization=args.quantization,
+        multi_gpu=args.multi_gpu,
     )
     tiling_config = TilingConfig.default()
     video_chunks_number = get_video_chunks_number(args.num_frames, tiling_config)
