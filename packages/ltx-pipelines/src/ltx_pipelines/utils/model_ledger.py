@@ -90,7 +90,7 @@ class ModelLedger:
         are stored and how matmul is executed. Defaults to None, which means no quantization.
     device_map:
         Optional mapping from component name to :class:`torch.device` for
-        multi-GPU pipeline parallelism.  Recognised keys are ``"transformer"``,
+        multi-GPU pipeline parallelism.  Recognized keys are ``"transformer"``,
         ``"vae"``, ``"upsampler"``, ``"text_encoder"``, ``"audio"``, and
         ``"default"``.  When provided, each model is placed on its designated
         GPU so all models can stay resident in VRAM simultaneously, eliminating

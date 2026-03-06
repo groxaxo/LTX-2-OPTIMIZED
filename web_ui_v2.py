@@ -250,7 +250,7 @@ with gr.Blocks(title="LTX-2.3 Studio", theme=theme, css=css) as demo:
                     multi_gpu = gr.Checkbox(
                         label="Multi-GPU (3× 3090)",
                         value=False,
-                        info="Distribute models across GPUs to minimise CPU offloading"
+                        info="Distribute models across GPUs to minimize CPU offloading"
                     )
 
                 gr.Markdown("### Model Paths")

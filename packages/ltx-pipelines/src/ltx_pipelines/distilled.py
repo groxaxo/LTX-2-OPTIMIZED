@@ -47,7 +47,7 @@ class DistilledPipeline:
     by 2x and refines with additional denoising steps for higher quality output.
 
     When *multi_gpu* is ``True`` the pipeline distributes models across available
-    GPUs (optimised for 3x RTX 3090) so that all models can stay resident in VRAM
+    GPUs (optimized for 3x RTX 3090) so that all models can stay resident in VRAM
     simultaneously, eliminating CPU offloading between pipeline stages.
     """
 

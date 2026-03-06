@@ -269,7 +269,7 @@ def basic_arg_parser(
         help=(
             "Enable multi-GPU pipeline parallelism. When set, models are distributed "
             "across available GPUs (optimised for 3x RTX 3090) so that all models stay "
-            "resident in VRAM simultaneously, minimising CPU offloading."
+            "resident in VRAM simultaneously, minimizing CPU offloading."
         ),
     )
     parser.add_argument(

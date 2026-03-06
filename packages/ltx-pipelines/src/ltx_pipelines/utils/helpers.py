@@ -44,7 +44,7 @@ def get_device_map(multi_gpu: bool = False) -> dict[str, torch.device]:
 
     When *multi_gpu* is ``True`` and multiple CUDA devices are available,
     different model components are assigned to different GPUs so that all
-    models can stay resident in VRAM simultaneously, minimising CPU
+    models can stay resident in VRAM simultaneously, minimizing CPU
     offloading and enabling faster inference.
 
     The mapping keys are:
@@ -63,7 +63,7 @@ def get_device_map(multi_gpu: bool = False) -> dict[str, torch.device]:
     num_gpus = torch.cuda.device_count()
 
     if num_gpus >= 3:
-        # Optimised for 3x RTX 3090 (24 GB each = 72 GB total).
+        # Optimized for 3x RTX 3090 (24 GB each = 72 GB total).
         # GPU 0: transformer (heaviest, ~20 GB in FP8)
         # GPU 1: VAE + spatial upsampler
         # GPU 2: Gemma text encoder + audio models
