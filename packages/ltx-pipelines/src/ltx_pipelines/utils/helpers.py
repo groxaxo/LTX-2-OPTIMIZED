@@ -39,10 +39,63 @@ def get_device() -> torch.device:
     return torch.device("cpu")
 
 
-def cleanup_memory() -> None:
+def get_device_map(multi_gpu: bool = False) -> dict[str, torch.device]:
+    """Get device assignments for pipeline parallelism across multiple GPUs.
+
+    When *multi_gpu* is ``True`` and multiple CUDA devices are available,
+    different model components are assigned to different GPUs so that all
+    models can stay resident in VRAM simultaneously, minimizing CPU
+    offloading and enabling faster inference.
+
+    The mapping keys are:
+
+    * ``"transformer"`` - main DiT transformer (largest model)
+    * ``"vae"`` - video VAE encoder / decoder
+    * ``"upsampler"`` - spatial latent upsampler
+    * ``"text_encoder"`` - Gemma text encoder
+    * ``"audio"`` - audio VAE + vocoder
+    * ``"default"`` - fallback for anything not listed above
+    """
+    if not multi_gpu or not torch.cuda.is_available():
+        dev = get_device()
+        return dict.fromkeys(("transformer", "vae", "text_encoder", "upsampler", "audio", "default"), dev)
+
+    num_gpus = torch.cuda.device_count()
+
+    if num_gpus >= 3:
+        # Optimized for 3x RTX 3090 (24 GB each = 72 GB total).
+        # GPU 0: transformer (heaviest, ~20 GB in FP8)
+        # GPU 1: VAE + spatial upsampler
+        # GPU 2: Gemma text encoder + audio models
+        return {
+            "transformer": torch.device("cuda:0"),
+            "vae": torch.device("cuda:1"),
+            "upsampler": torch.device("cuda:1"),
+            "text_encoder": torch.device("cuda:2"),
+            "audio": torch.device("cuda:2"),
+            "default": torch.device("cuda:0"),
+        }
+    if num_gpus == 2:
+        return {
+            "transformer": torch.device("cuda:0"),
+            "vae": torch.device("cuda:1"),
+            "upsampler": torch.device("cuda:1"),
+            "text_encoder": torch.device("cuda:0"),
+            "audio": torch.device("cuda:1"),
+            "default": torch.device("cuda:0"),
+        }
+    dev = torch.device("cuda:0")
+    return dict.fromkeys(("transformer", "vae", "text_encoder", "upsampler", "audio", "default"), dev)
+
+
+def cleanup_memory(device: torch.device | None = None) -> None:
     gc.collect()
-    torch.cuda.empty_cache()
-    torch.cuda.synchronize()
+    if device is not None and device.type == "cuda":
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize(device)
+    elif torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
 
 
 def encode_prompts(

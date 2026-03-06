@@ -1,10 +1,10 @@
 # LTX-2 Optimized (8GB VRAM Edition) + Web UI
 
-This repository contains a **modified and optimized version of the LTX-2 Video Generation Model**, designed specifically to run on consumer hardware with as little as **8GB of VRAM**.
+This repository contains a **modified and optimized version of the LTX-2 Video Generation Model**, designed specifically to run on consumer hardware with as little as **8GB of VRAM**, and now with **multi-GPU support** for 3x RTX 3090 setups.
 
 It includes a fully-featured **Gradio Web Interface** to make generating videos, managing presets, and applying LoRAs easy without needing to remember complex command-line arguments.
 
-> **Compatibility:** This fork is synchronized with the upstream [Lightricks/LTX-2](https://github.com/Lightricks/LTX-2) repository (as of 2026-03-05) and is compatible with the latest LTX-2.3 model releases.
+> **Compatibility:** This fork is synchronized with the upstream [Lightricks/LTX-2](https://github.com/Lightricks/LTX-2) repository and is fully compatible with **LTX-2.3** (22B parameter model).
 
 ## Web UI Screenshots
 
@@ -27,17 +27,19 @@ It includes a fully-featured **Gradio Web Interface** to make generating videos,
 
 ## 🚀 Fork Features & Optimizations
 
-* **8GB VRAM Optimization:** Runs locally on cards like the RTX 3070/4060Ti using FP8 quantization and memory management tweaks.
+* **LTX-2.3 (22B) Support:** Fully compatible with the latest LTX-2.3 model checkpoint (`ltx-2.3-22b-dev.safetensors`), spatial upscaler, and distilled LoRA.
+* **Multi-GPU Pipeline Parallelism:** Distribute models across 3x RTX 3090 GPUs (72 GB VRAM) to keep all models resident in VRAM simultaneously, minimizing CPU offloading. Enable via the `--multi-gpu` CLI flag or the "Multi-GPU (3x 3090)" checkbox in the web UI.
+* **8GB VRAM Optimization:** Also runs locally on cards like the RTX 3070/4060Ti using FP8 quantization and memory management tweaks.
 * **Windows 11 support:** You can run it on Windows (not officially supported in the original model).
 * **User-Friendly Web UI:** Control everything from your browser using `web_ui_v2.py` or `web_ui_v4.py`.
 * **Smart "Safe Mode":** The UI automatically limits the frame count based on selected resolution to prevent Out-Of-Memory (OOM) errors.
 * **Real-time Logging:** View the generation progress and console output directly in the web interface.
-* **Optimized Transformer Code:** Increased max frames by ~40% for text-to-video; generation speed improved from 300–315 sec to 385–415 sec (RTX 3070 Ti laptop).
+* **Optimized Transformer Code:** Increased max frames by ~40% for text-to-video; generation speed improved from 300-315 sec to 385-415 sec (RTX 3070 Ti laptop).
 * **Stage 1 Video Preview, Task Queue, Prompt Constructor:** Available in Web UI v4.
-* **Disable Audio option:** Speeds up inference by 10–30%.
+* **Disable Audio option:** Speeds up inference by 10-30%.
 * **Film Maker UI:** Full-featured film-making interface (`film_maker_ui_v4.py`).
 * **Music to Video UI:** Audio-driven video generation with optional start/last frame conditioning (`music_maker_ui.py`, `music_maker_ui_v2.py`).
-* **Advanced Features:** Image Conditioning, LoRA Support (checkbox selection for Camera Control), Seed Control for reproducible generations.
+* **Advanced Features:** Image Conditioning, LoRA Support (checkbox selection for Camera Control and LTX-2.3 IC-LoRAs), Seed Control for reproducible generations.
 
 ## 📥 Installation (Fork with Web UI)
 
@@ -70,20 +72,27 @@ xformers==0.0.32.post2
 mkdir -p models/loras
 ```
 
-Download required files:
-* [`ltx-2-19b-distilled-fp8.safetensors`](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-distilled-fp8.safetensors)
-* [`ltx-2-spatial-upscaler-x2-1.0.safetensors`](https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-spatial-upscaler-x2-1.0.safetensors)
-* [`Gemma 3`](https://huggingface.co/google/gemma-3-12b-it-qat-q4_0-unquantized/tree/main) → place in `./models/gemma3/`
+Download required files from the [LTX-2.3 HuggingFace repository](https://huggingface.co/Lightricks/LTX-2.3):
+* [`ltx-2.3-22b-dev.safetensors`](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-dev.safetensors) (main checkpoint)
+* [`ltx-2.3-spatial-upscaler-x2-1.0.safetensors`](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.0.safetensors) (spatial upscaler)
+* [`ltx-2.3-22b-distilled-lora-384.safetensors`](https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384.safetensors) (distilled LoRA, place in `./models/loras/`)
+* [`Gemma 3`](https://huggingface.co/google/gemma-3-12b-it-qat-q4_0-unquantized/tree/main) -> place in `./models/gemma3/`
+
+Optional LTX-2.3 LoRAs (place in `./models/loras/`):
+* [`ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors`](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control/resolve/main/ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors)
+* [`ltx-2.3-22b-ic-lora-inpainting.safetensors`](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Inpainting/resolve/main/ltx-2.3-22b-ic-lora-inpainting.safetensors)
+* [`ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors`](https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control/resolve/main/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors)
 
 Expected directory layout:
 ```
 ./models/
-    ltx-2-19b-distilled-fp8.safetensors
-    ltx-2-spatial-upscaler-x2-1.0.safetensors
+    ltx-2.3-22b-dev.safetensors
+    ltx-2.3-spatial-upscaler-x2-1.0.safetensors
 ./models/gemma3/
     (Gemma 3 model files)
 ./models/loras/
-    (LoRA files, optional)
+    ltx-2.3-22b-distilled-lora-384.safetensors
+    (other LoRA files, optional)
 ```
 
 **4. Launch Web UI:**
@@ -104,14 +113,47 @@ python music_maker_ui_v2.py      # Music to Video (2-step, higher quality)
 
 | Resolution   | Max Frames (i2v) | Max Frames (t2v) | Est. Time      |
 |:-------------|:-----------------|:-----------------|:---------------|
-| 1280 × 704   | 177              | 257              | ~300–400 sec   |
-| 1536 × 1024  | 121              | 185              | ~300–400 sec   |
-| 1920 × 1088  | 81               | 121              | ~300–400 sec   |
-| 2560 × 1408  | 49               | 65               | ~300–400 sec   |
-| 3840 × 2176  | 17               | 25               | ~300–400 sec   |
+| 1280 x 704   | 177              | 257              | ~300-400 sec   |
+| 1536 x 1024  | 121              | 185              | ~300-400 sec   |
+| 1920 x 1088  | 81               | 121              | ~300-400 sec   |
+| 2560 x 1408  | 49               | 65               | ~300-400 sec   |
+| 3840 x 2176  | 17               | 25               | ~300-400 sec   |
 
 * +60 sec for prompt (if not empty/not cached)
-* Stage 1 preview: 80–150 sec
+* Stage 1 preview: 80-150 sec
+
+## 📊 Performance on 3x RTX 3090 (Multi-GPU)
+
+When using `--multi-gpu`, models are distributed across GPUs:
+* **GPU 0:** Transformer (largest model, ~20 GB in FP8)
+* **GPU 1:** Video VAE + spatial upsampler
+* **GPU 2:** Gemma text encoder + audio models
+
+| Resolution   | Max Frames | Est. Time      |
+|:-------------|:-----------|:---------------|
+| 1280 x 704   | 257        | ~60-90 sec     |
+| 1536 x 1024  | 185        | ~80-120 sec    |
+| 1920 x 1088  | 121        | ~90-150 sec    |
+| 2560 x 1408  | 65         | ~100-180 sec   |
+| 3840 x 2176  | 25         | ~120-200 sec   |
+
+Benefits of multi-GPU over single GPU:
+* **No CPU offloading** between pipeline stages (all models stay resident in VRAM)
+* **No memory cleanup pauses** between Stage 1 and Stage 2
+* **Faster VAE decoding** (runs in parallel on separate GPU)
+
+To enable multi-GPU from the CLI:
+```bash
+python -m ltx_pipelines.distilled \
+  --distilled-checkpoint-path ./models/ltx-2.3-22b-dev.safetensors \
+  --gemma-root ./models/gemma3 \
+  --spatial-upsampler-path ./models/ltx-2.3-spatial-upscaler-x2-1.0.safetensors \
+  --quantization fp8-cast \
+  --multi-gpu \
+  --prompt "Your prompt here" \
+  --output-path output.mp4 \
+  --width 1280 --height 720 --num-frames 121
+```
 
 ## Credits
 

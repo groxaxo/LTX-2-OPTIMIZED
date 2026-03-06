@@ -8,16 +8,21 @@ from ltx_core.components.guiders import MultiModalGuiderParams
 from ltx_core.loader import LoraPathStrengthAndSDOps
 from ltx_core.model.video_vae import TilingConfig, get_video_chunks_number
 from ltx_core.quantization import QuantizationPolicy
-from ltx_pipelines._compat import DEFAULT_DISTILLED_LORA_FILENAME, has_lora_filename_pattern
+from ltx_pipelines._compat import (
+    DEFAULT_DISTILLED_LORA_FILENAME,
+    LEGACY_DISTILLED_LORA_FILENAME,
+    has_lora_filename_pattern,
+)
 from ltx_pipelines.a2vid_two_stage import A2VidPipelineTwoStage
 from ltx_pipelines.utils.media_io import encode_video
 
 
 def _existing_distilled_lora(checkpoint_path: str) -> list[LoraPathStrengthAndSDOps]:
     ckpt_dir = Path(checkpoint_path).resolve().parent
-    default_lora = ckpt_dir / DEFAULT_DISTILLED_LORA_FILENAME
-    if default_lora.exists() and has_lora_filename_pattern(default_lora.as_posix()):
-        return [LoraPathStrengthAndSDOps(default_lora.as_posix(), 1.0)]
+    for filename in (DEFAULT_DISTILLED_LORA_FILENAME, LEGACY_DISTILLED_LORA_FILENAME):
+        candidate = ckpt_dir / filename
+        if candidate.exists() and has_lora_filename_pattern(candidate.as_posix()):
+            return [LoraPathStrengthAndSDOps(candidate.as_posix(), 1.0)]
     return []
 
 
