@@ -91,13 +91,13 @@ Other launch targets are available through `python run_tensorrt.py --help`.
 | `LTX_TENSORRT_CACHE_DIR` | `~/.cache/ltx/tensorrt` | Timing and engine cache root. |
 | `LTX_TENSORRT_CACHE_GB` | `64` | Maximum persistent engine-cache size. |
 | `LTX_TENSORRT_WORKSPACE_GB` | `4` | Per-engine builder workspace ceiling. |
-| `LTX_TENSORRT_MIN_BLOCK_SIZE` | `3` | Minimum contiguous TensorRT region size. |
+| `LTX_TENSORRT_MIN_BLOCK_SIZE` | `5` | Minimum contiguous TensorRT region size. |
 | `LTX_TENSORRT_OPT_LEVEL` | `3` | TensorRT builder optimization level, from 0 to 5. |
 | `LTX_TENSORRT_MAX_AUX_STREAMS` | `2` | Maximum auxiliary streams per engine. |
 | `LTX_TENSORRT_DYNAMIC` | `0` | Use dynamic-shape tracing instead of static specialization. |
 | `LTX_TENSORRT_ENGINE_CACHE` | `1` | Persist and reuse engines. |
 | `LTX_TENSORRT_FAST_PARTITIONER` | `1` | Use the faster graph partitioner. |
-| `LTX_TENSORRT_EXPERIMENTAL_DECOMPOSITIONS` | `1` | Expand operator coverage. |
+| `LTX_TENSORRT_EXPERIMENTAL_DECOMPOSITIONS` | `0` | Opt into experimental operator decompositions. |
 | `LTX_TENSORRT_STRICT` | `0` | Raise instead of falling back when compilation fails. |
 | `LTX_TENSORRT_DEBUG` | `0` | Enable verbose compiler diagnostics. |
 | `LTX_TENSORRT_ALLOW_SINGLE_GPU_COMPONENTS` | `0` | Permit VAE/upsampler engines on a shared GPU. |
@@ -151,9 +151,9 @@ TensorRT partitions and fallback warnings.
 
 ## Failure policy
 
-By default, an unsupported graph or engine-build failure disables only that component and immediately retries the
-call through its original PyTorch `forward`. Existing weights, state dictionaries, hooks, and pipeline APIs are
-preserved.
+Unsupported graph regions remain in PyTorch through hybrid execution. If lazy compilation or TensorRT runtime
+execution raises an exception, the wrapper disables only that component and immediately retries the call through
+its original PyTorch `forward`. Existing weights, state dictionaries, hooks, and pipeline APIs are preserved.
 
 CUDA out-of-memory errors are not swallowed. They remain fatal because retrying the same allocation through eager
 execution is unlikely to be safe. Reduce resolution, frame count, workspace size, or enabled components.
