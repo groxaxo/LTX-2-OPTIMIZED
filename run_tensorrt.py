@@ -31,7 +31,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache-dir", type=Path, default=Path.home() / ".cache" / "ltx" / "tensorrt")
     parser.add_argument("--cache-size-gb", type=float, default=64.0)
     parser.add_argument("--workspace-gb", type=float, default=4.0)
-    parser.add_argument("--min-block-size", type=int, default=3)
+    parser.add_argument("--min-block-size", type=int, default=5)
     parser.add_argument("--optimization-level", type=int, choices=range(6), default=3)
     parser.add_argument("--max-aux-streams", type=int, default=2)
     parser.add_argument("--dynamic-shapes", action="store_true")
@@ -39,7 +39,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--no-engine-cache", action="store_true")
     parser.add_argument("--global-partitioner", action="store_true")
-    parser.add_argument("--no-experimental-decompositions", action="store_true")
+    parser.add_argument("--experimental-decompositions", action="store_true")
     parser.add_argument("--allow-single-gpu-components", action="store_true")
     return parser
 
@@ -70,9 +70,7 @@ def _configure_environment(args: argparse.Namespace) -> None:
         "LTX_TENSORRT_DEBUG": "1" if args.debug else "0",
         "LTX_TENSORRT_ENGINE_CACHE": "0" if args.no_engine_cache else "1",
         "LTX_TENSORRT_FAST_PARTITIONER": "0" if args.global_partitioner else "1",
-        "LTX_TENSORRT_EXPERIMENTAL_DECOMPOSITIONS": (
-            "0" if args.no_experimental_decompositions else "1"
-        ),
+        "LTX_TENSORRT_EXPERIMENTAL_DECOMPOSITIONS": "1" if args.experimental_decompositions else "0",
         "LTX_TENSORRT_ALLOW_SINGLE_GPU_COMPONENTS": "1" if args.allow_single_gpu_components else "0",
     }
     os.environ.update(settings)
