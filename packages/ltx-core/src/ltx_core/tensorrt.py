@@ -103,14 +103,14 @@ class TensorRTConfig:
             cache_root=Path(os.getenv("LTX_TENSORRT_CACHE_DIR", str(_default_cache_root()))).expanduser(),
             cache_size_bytes=int(_env_float("LTX_TENSORRT_CACHE_GB", 64.0, minimum=1.0) * _GIB),
             workspace_size_bytes=int(_env_float("LTX_TENSORRT_WORKSPACE_GB", 4.0, minimum=0.25) * _GIB),
-            min_block_size=_env_int("LTX_TENSORRT_MIN_BLOCK_SIZE", 3, minimum=1),
+            min_block_size=_env_int("LTX_TENSORRT_MIN_BLOCK_SIZE", 5, minimum=1),
             optimization_level=_env_int("LTX_TENSORRT_OPT_LEVEL", 3, minimum=0, maximum=5),
             max_aux_streams=_env_int("LTX_TENSORRT_MAX_AUX_STREAMS", 2, minimum=0),
             dynamic_shapes=_env_bool("LTX_TENSORRT_DYNAMIC", False),
             strict=_env_bool("LTX_TENSORRT_STRICT", False),
             engine_cache=_env_bool("LTX_TENSORRT_ENGINE_CACHE", True),
             fast_partitioner=_env_bool("LTX_TENSORRT_FAST_PARTITIONER", True),
-            experimental_decompositions=_env_bool("LTX_TENSORRT_EXPERIMENTAL_DECOMPOSITIONS", True),
+            experimental_decompositions=_env_bool("LTX_TENSORRT_EXPERIMENTAL_DECOMPOSITIONS", False),
             debug=_env_bool("LTX_TENSORRT_DEBUG", False),
             allow_single_gpu_components=_env_bool("LTX_TENSORRT_ALLOW_SINGLE_GPU_COMPONENTS", False),
         )
@@ -212,7 +212,8 @@ def _compile_options(config: TensorRTConfig, device: torch.device) -> dict[str, 
         "debug": config.debug,
         "workspace_size": config.workspace_size_bytes,
         "min_block_size": config.min_block_size,
-        "pass_through_build_failures": config.strict,
+        # Surface builder failures to the wrapper, which applies strict-or-fallback policy.
+        "pass_through_build_failures": True,
         "max_aux_streams": config.max_aux_streams,
         "optimization_level": config.optimization_level,
         "use_fast_partitioner": config.fast_partitioner,
@@ -231,8 +232,8 @@ def _compile_options(config: TensorRTConfig, device: torch.device) -> dict[str, 
 
 
 def _is_oom(exception: Exception) -> bool:
-    out_of_memory = getattr(torch.cuda, "OutOfMemoryError", RuntimeError)
-    return isinstance(exception, out_of_memory) and "out of memory" in str(exception).lower()
+    out_of_memory = getattr(torch.cuda, "OutOfMemoryError", ())
+    return isinstance(exception, out_of_memory) or "out of memory" in str(exception).lower()
 
 
 def _dispatch_compiled_forward(module: torch.nn.Module, *args: Any, **kwargs: Any) -> Any:
