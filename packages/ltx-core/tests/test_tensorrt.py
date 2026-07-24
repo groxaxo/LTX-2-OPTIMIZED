@@ -17,7 +17,7 @@ def _config(**overrides: Any) -> trt.TensorRTConfig:
         "cache_root": Path("/tmp/ltx-test-trt-cache"),
         "cache_size_bytes": 1024**3,
         "workspace_size_bytes": 256 * 1024**2,
-        "min_block_size": 3,
+        "min_block_size": 5,
         "optimization_level": 3,
         "max_aux_streams": 2,
         "dynamic_shapes": False,
@@ -61,6 +61,8 @@ def test_config_defaults_are_disabled_and_memory_safe(monkeypatch: pytest.Monkey
     assert config.enabled is False
     assert config.components == frozenset({"upsampler", "vae"})
     assert config.dynamic_shapes is False
+    assert config.min_block_size == 5
+    assert config.experimental_decompositions is False
     assert config.allow_single_gpu_components is False
 
 
@@ -141,6 +143,7 @@ def test_compile_options_use_explicit_model_typing(
     assert options["enabled_precisions"] == {torch.float32}
     assert options["use_explicit_typing"] is True
     assert options["device"] == device
+    assert options["pass_through_build_failures"] is True
     assert options["immutable_weights"] is False
     assert options["engine_cache_size"] == config.cache_size_bytes
     assert "sm-86" in options["engine_cache_dir"]
@@ -167,6 +170,26 @@ def test_compiled_forward_falls_back_and_disables_only_that_component() -> None:
 
     torch.testing.assert_close(output, input_tensor)
     assert object.__getattribute__(module, "_ltx_trt_compiled_forward") is None
+
+
+def test_compiled_forward_does_not_swallow_out_of_memory() -> None:
+    module = torch.nn.Identity()
+    eager = module.forward
+
+    def out_of_memory(_: torch.Tensor) -> torch.Tensor:
+        raise RuntimeError("CUDA out of memory")
+
+    object.__setattr__(module, "_ltx_trt_eager_forward", eager)
+    object.__setattr__(module, "_ltx_trt_compiled_forward", out_of_memory)
+    object.__setattr__(module, "_ltx_trt_config", _config())
+    object.__setattr__(module, "_ltx_trt_component", "vae")
+    object.__setattr__(module, "_ltx_trt_device", torch.device("cuda:0"))
+    module.forward = MethodType(trt._dispatch_compiled_forward, module)
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(torch.cuda, "device", lambda _: _NullContext())
+        with pytest.raises(RuntimeError, match="out of memory"):
+            module(torch.randn(1))
 
 
 class _NullContext:
