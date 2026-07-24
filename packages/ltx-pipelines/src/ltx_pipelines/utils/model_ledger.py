@@ -32,6 +32,7 @@ from ltx_core.model.video_vae import (
     VideoEncoderConfigurator,
 )
 from ltx_core.quantization import QuantizationPolicy
+from ltx_core.tensorrt import TensorRTConfig, optimize_component
 from ltx_core.text_encoders.gemma import (
     EMBEDDINGS_PROCESSOR_KEY_OPS,
     GEMMA_LLM_KEY_OPS,
@@ -61,6 +62,10 @@ class ModelLedger:
         Callers are responsible for storing references to models they wish to reuse
         and for freeing GPU memory (e.g. by deleting references and calling
         ``torch.cuda.empty_cache()``).
+    ### Model acceleration
+    TensorRT acceleration for the video VAE and spatial upsampler is opt-in through
+    ``LTX_TENSORRT=1``. Configuration is captured when the ledger is created so one
+    pipeline invocation uses a consistent cache and fallback policy.
     ### Constructor parameters
     dtype:
         Torch dtype used when constructing all models (e.g. ``torch.bfloat16``).
@@ -123,7 +128,12 @@ class ModelLedger:
         self.loras = loras
         self.registry = registry or DummyRegistry()
         self.quantization = quantization
+        self.tensorrt_config = TensorRTConfig.from_env()
         self.build_model_builders()
+
+    @property
+    def multi_gpu(self) -> bool:
+        return self.device_map is not None
 
     def build_model_builders(self) -> None:
         if self.checkpoint_path is not None:
@@ -210,6 +220,14 @@ class ModelLedger:
             return self.device_map.get(component, self.device_map.get("default", self.device))
         return self.device
 
+    def _optimize(self, model: torch.nn.Module, component: str) -> torch.nn.Module:
+        return optimize_component(
+            model,
+            component,
+            config=self.tensorrt_config,
+            multi_gpu=self.multi_gpu,
+        )
+
     def with_additional_loras(self, loras: tuple[LoraPathStrengthAndSDOps, ...]) -> "ModelLedger":
         """Add new lora configurations to the existing ones."""
         return self.with_loras((*self.loras, *loras))
@@ -236,7 +254,7 @@ class ModelLedger:
 
         target = self._device_for("transformer")
         if self.quantization is None:
-            return (
+            model = (
                 X0Model(self.transformer_builder.build(device=self._target_device(), dtype=self.dtype))
                 .to(target)
                 .eval()
@@ -253,7 +271,9 @@ class ModelLedger:
                 module_ops=(*self.transformer_builder.module_ops, *self.quantization.module_ops),
                 model_sd_ops=sd_ops,
             )
-            return X0Model(builder.build(device=self._target_device())).to(target).eval()
+            model = X0Model(builder.build(device=self._target_device())).to(target).eval()
+
+        return model
 
     def video_decoder(self) -> VideoDecoder:
         if not hasattr(self, "vae_decoder_builder"):
@@ -262,7 +282,8 @@ class ModelLedger:
             )
 
         target = self._device_for("vae")
-        return self.vae_decoder_builder.build(device=self._target_device(), dtype=self.dtype).to(target).eval()
+        model = self.vae_decoder_builder.build(device=self._target_device(), dtype=self.dtype).to(target).eval()
+        return self._optimize(model, "vae")  # type: ignore[return-value]
 
     def video_encoder(self) -> VideoEncoder:
         if not hasattr(self, "vae_encoder_builder"):
@@ -271,7 +292,8 @@ class ModelLedger:
             )
 
         target = self._device_for("vae")
-        return self.vae_encoder_builder.build(device=self._target_device(), dtype=self.dtype).to(target).eval()
+        model = self.vae_encoder_builder.build(device=self._target_device(), dtype=self.dtype).to(target).eval()
+        return self._optimize(model, "vae")  # type: ignore[return-value]
 
     def text_encoder(self) -> GemmaTextEncoder:
         if not hasattr(self, "text_encoder_builder"):
@@ -328,4 +350,5 @@ class ModelLedger:
             raise ValueError("Upsampler not initialized. Please provide upsampler path to the ModelLedger constructor.")
 
         target = self._device_for("upsampler")
-        return self.upsampler_builder.build(device=self._target_device(), dtype=self.dtype).to(target).eval()
+        model = self.upsampler_builder.build(device=self._target_device(), dtype=self.dtype).to(target).eval()
+        return self._optimize(model, "upsampler")  # type: ignore[return-value]
